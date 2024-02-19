@@ -162,7 +162,6 @@ module sorter2 #(
 
       done              = 1'b0;
       sorted_indexes[sorted_index] = pixelID;
-      sorted_indexes = sorted_indexes;
 
     end else if (state == COMPARE_SORTED_INDEX) begin
       dec_intensity     = 1'b0;
@@ -195,6 +194,5 @@ module sorter2 #(
   end
 
   // Output
-  // assign sorted_indexes[sorted_index] = store_index ? pixelID : sorted_indexes[sorted_index];
 
 endmodule 

@@ -13,9 +13,9 @@
 
 
 void print_array(uint32_t array[], uint32_t size){
-
+    uint32_t i;
     printf("[");
-    for (uint32_t i = 0; i < size; i++) {
+    for (i = 0; i < size; i++) {
         printf("%" PRIu32, array[i]);
         if (i < size - 1) {
             printf(", ");
@@ -34,9 +34,10 @@ void sorter(uint32_t input_array[], uint32_t sorted_array[]){
         Stop when the array has been sorted. 
     */ 
     uint32_t sorted_index = 0;
-
-    for (int32_t intensity = PIXEL_MAX_VALUE - 1; intensity >= 0; intensity--) {
-        for (uint32_t pixelID = 0; pixelID < IMAGE_SIZE; pixelID++) {
+    int32_t intensity;
+    uint32_t pixelID;
+    for (intensity = PIXEL_MAX_VALUE - 1; intensity >= 0; intensity--) {
+        for (pixelID = 0; pixelID < IMAGE_SIZE; pixelID++) {
             if (input_array[pixelID] == (uint32_t)intensity){            
                 // Here we can store the value or output to AER
                 sorted_array[sorted_index] = pixelID;
@@ -56,8 +57,9 @@ int main() {
     /*  Initialize each value randomly between 0 and 255. Seed the random number 
         generator to get different values each time
     */
+    uint32_t i;
     srand(time(NULL));
-    for (uint32_t i = 0; i < IMAGE_SIZE; i++) {
+    for (i = 0; i < IMAGE_SIZE; i++) {
         image[i] = (uint32_t)rand() % PIXEL_MAX_VALUE;
     }
 
