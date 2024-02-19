@@ -9,7 +9,7 @@
 #define IMAGE_SIZE 256
 
 // Each pixel on MNIST is a value from 0 to 255, stored as integers
-#define PIXEL_MAX_VALUE 256
+#define PIXEL_MAX_VALUE 255
 
 
 void print_array(uint32_t array[], uint32_t size){
@@ -36,7 +36,7 @@ void sorter(uint32_t input_array[], uint32_t sorted_array[]){
     uint32_t sorted_index = 0;
     int32_t intensity;
     uint32_t pixelID;
-    for (intensity = PIXEL_MAX_VALUE - 1; intensity >= 0; intensity--) {
+    for (intensity = PIXEL_MAX_VALUE; intensity >= 0; intensity--) {
         for (pixelID = 0; pixelID < IMAGE_SIZE; pixelID++) {
             if (input_array[pixelID] == (uint32_t)intensity){            
                 // Here we can store the value or output to AER
@@ -60,7 +60,7 @@ int main() {
     uint32_t i;
     srand(time(NULL));
     for (i = 0; i < IMAGE_SIZE; i++) {
-        image[i] = (uint32_t)rand() % PIXEL_MAX_VALUE;
+        image[i] = (uint32_t)rand() % PIXEL_MAX_VALUE + 1;
     }
 
     // Sort the images
@@ -70,9 +70,7 @@ int main() {
     printf("Original image: ");
     print_array(image, IMAGE_SIZE);
     printf("Encoded image: ");
-    print_array(sorted_indexes, IMAGE_SIZE);
-
- 
+    print_array(sorted_indexes, IMAGE_SIZE); 
 
     return 0;
 }

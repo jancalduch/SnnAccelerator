@@ -18,11 +18,11 @@ module sorter2 #(
     input  logic           RST,
 
     // Input image
-    input logic [PIXEL_BITS-1:0] image [0:IMAGE_SIZE-1],
+    input logic [PIXEL_BITS:0] image [0:IMAGE_SIZE-1],
     input logic new_image,
     
     // Encoded image (sorted index in decreasing pixel value)
-    output logic [PIXEL_BITS-1:0] sorted_indexes [0:IMAGE_SIZE-1],
+    output logic [PIXEL_BITS:0] sorted_indexes [0:IMAGE_SIZE-1],
     output logic done
 );
     
@@ -48,7 +48,7 @@ module sorter2 #(
   //----------------------------------------------------------------------------
   state_t state, nextstate;
 
-  logic [PIXEL_BITS-1:0] intensity;
+  logic [PIXEL_BITS:0] intensity;
   logic [IMAGE_SIZE_BITS:0] sorted_index;
   logic [IMAGE_SIZE_BITS:0] pixelID;
 
@@ -101,8 +101,8 @@ module sorter2 #(
       else                    pixelID <= pixelID;
 
     always @(posedge CLK, posedge RST)
-      if      (RST)               intensity <= PIXEL_MAX_VALUE - 1;
-      else if (state == IDLE)     intensity <= PIXEL_MAX_VALUE - 1;
+      if      (RST)               intensity <= PIXEL_MAX_VALUE;
+      else if (state == IDLE)     intensity <= PIXEL_MAX_VALUE;
       else if (dec_intensity)     intensity <= intensity - 1;
       else                        intensity <= intensity;
           
