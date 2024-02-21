@@ -1,4 +1,4 @@
-module aer_out #(
+module aer_out_enc #(
 	parameter IMAGE_SIZE      = 5,
   parameter IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
   parameter PIXEL_MAX_VALUE = 10,

@@ -60,12 +60,12 @@ module encoder #(
   );
 
   // Output AER
-  aer_out #(
+  aer_out_enc #(
     IMAGE_SIZE,
     IMAGE_SIZE_BITS,
     PIXEL_MAX_VALUE,
     PIXEL_BITS
-  ) aer_out_0 (
+  ) aer_out_enc_0 (
 
     // Global input ----------------------------------- 
     .CLK(CLK),
