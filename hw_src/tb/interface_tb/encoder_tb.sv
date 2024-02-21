@@ -24,9 +24,9 @@ module encoder_tb ();
   logic NEW_IMAGE; 
   logic IMAGE_ENCODED;
 
-  logic [IMAGE_SIZE_BITS:0] AEROUT_ADDR;
-  logic AEROUT_REQ;
-  logic AEROUT_ACK;
+  logic [IMAGE_SIZE_BITS:0] AERIN_ADDR;
+  logic AERIN_REQ;
+  logic AERIN_ACK;
 
   
 
@@ -35,9 +35,9 @@ module encoder_tb ();
   // ------------------------------
 
   initial begin
-    sorter_ready      = 1'b0;
-    NEW_IMAGE         = 1'b0;
-    AEROUT_ACK  =  1'b0;
+    sorter_ready  = 1'b0;
+    NEW_IMAGE     = 1'b0;
+    AERIN_ACK     = 1'b0;
 
     auto_ack_verbose = 1'b0;
 
@@ -97,9 +97,9 @@ module encoder_tb ();
     .IMAGE_ENCODED    ( IMAGE_ENCODED     ),
 
     // Output 8-bit AER link --------------------------
-    .AEROUT_ADDR      ( AEROUT_ADDR       ),
-    .AEROUT_REQ       ( AEROUT_REQ        ),
-    .AEROUT_ACK       ( AEROUT_ACK        )
+    .AERIN_ADDR      ( AERIN_ADDR       ),
+    .AERIN_REQ       ( AERIN_REQ        ),
+    .AERIN_ACK       ( AERIN_ACK        )
 
   );
 
@@ -128,7 +128,7 @@ module encoder_tb ();
     end
 
     fork
-      auto_ack(.req(AEROUT_REQ), .ack(AEROUT_ACK), .addr(AEROUT_ADDR), .pixel_id(pixel_id_spike), .verbose(auto_ack_verbose));
+      auto_ack(.req(AERIN_REQ), .ack(AERIN_ACK), .addr(AERIN_ADDR), .pixel_id(pixel_id_spike), .verbose(auto_ack_verbose));
     join_none
 
     //Start monitoring output spikes in the console

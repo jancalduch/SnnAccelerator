@@ -16,15 +16,15 @@ module encoder #(
     output logic IMAGE_ENCODED,
 
     // Output 8-bit AER -------------------------------
-    output wire [IMAGE_SIZE_BITS:0] AEROUT_ADDR,
-    output wire 	        AEROUT_REQ,
-    input  wire 	        AEROUT_ACK
+    output wire [IMAGE_SIZE_BITS:0] AERIN_ADDR,
+    output wire 	        AERIN_REQ,
+    input  wire 	        AERIN_ACK
 );
     
   //----------------------------------------------------------------------------
   //	LOGIC
   //----------------------------------------------------------------------------
-  logic AEROUT_CTRL_BUSY;
+  logic AERIN_CTRL_BUSY;
 
   logic [IMAGE_SIZE_BITS:0] NEXT_INDEX;
   logic FOUND_NEXT_INDEX;
@@ -49,7 +49,7 @@ module encoder #(
     .NEW_IMAGE        ( NEW_IMAGE         ),
 
     // From AER
-    .AEROUT_CTRL_BUSY ( AEROUT_CTRL_BUSY  ),
+    .AERIN_CTRL_BUSY  ( AERIN_CTRL_BUSY  ),
 
     // Next index sorted
     .NEXT_INDEX       ( NEXT_INDEX        ),
@@ -78,12 +78,12 @@ module encoder #(
     .FOUND_NEXT_INDEX(FOUND_NEXT_INDEX),
     
     // Output to sorter ---------------------------
-    .AEROUT_CTRL_BUSY(AEROUT_CTRL_BUSY),
+    .AERIN_CTRL_BUSY(AERIN_CTRL_BUSY),
     
     // Output 8-bit AER link --------------------------
-    .AEROUT_ADDR(AEROUT_ADDR),
-    .AEROUT_REQ(AEROUT_REQ),
-    .AEROUT_ACK(AEROUT_ACK)
+    .AERIN_ADDR(AERIN_ADDR),
+    .AERIN_REQ(AERIN_REQ),
+    .AERIN_ACK(AERIN_ACK)
   );
   
 endmodule 

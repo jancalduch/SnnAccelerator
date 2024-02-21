@@ -22,7 +22,7 @@ module sorter3 #(
     input logic NEW_IMAGE,
 
     // From AER
-    input logic AEROUT_CTRL_BUSY,
+    input logic AERIN_CTRL_BUSY,
     
     // Next index sorted
     output logic [IMAGE_SIZE_BITS:0] NEXT_INDEX,
@@ -86,7 +86,7 @@ module sorter3 #(
       DECREMENT_INTENSITY     :                                     nextstate = INNER_LOOP;
       INCREMENT_PIXEL_ID      :                                     nextstate = INNER_LOOP;
 		  SEND_AER                :                                     nextstate = WAIT_AER;
-      WAIT_AER                : if (!AEROUT_CTRL_BUSY)              nextstate = INCREMENT_SORTED_INDEX;
+      WAIT_AER                : if (!AERIN_CTRL_BUSY)               nextstate = INCREMENT_SORTED_INDEX;
                                 else                                nextstate = WAIT_AER;
       INCREMENT_SORTED_INDEX  :                                     nextstate = COMPARE_SORTED_INDEX;
       COMPARE_SORTED_INDEX    : if (sorted_index == IMAGE_SIZE)     nextstate = DONE;
