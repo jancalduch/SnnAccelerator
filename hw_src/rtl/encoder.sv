@@ -19,7 +19,7 @@ module encoder #(
     output logic IMAGE_ENCODED,
 
     // Output 8-bit AER -------------------------------
-    output wire [IMAGE_SIZE_BITS:0] AERIN_ADDR,
+    output wire [IMAGE_SIZE_BITS+1:0] AERIN_ADDR,
     output wire 	        AERIN_REQ,
     input  wire 	        AERIN_ACK
 );
@@ -29,7 +29,7 @@ module encoder #(
   //----------------------------------------------------------------------------
   logic AERIN_CTRL_BUSY;
 
-  logic [IMAGE_SIZE_BITS:0] NEXT_INDEX;
+  logic [IMAGE_SIZE_BITS+1:0] NEXT_INDEX;
   logic FOUND_NEXT_INDEX;
 
   //----------------------------------------------------------------------------

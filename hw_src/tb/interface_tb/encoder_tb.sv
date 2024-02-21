@@ -12,7 +12,7 @@ module encoder_tb ();
   logic         sorter_ready;
   logic         auto_ack_verbose;
   
-  logic         [IMAGE_SIZE_BITS:0] pixel_id_spike;
+  logic         [IMAGE_SIZE_BITS+1:0] pixel_id_spike;
 
   logic         [PIXEL_BITS:0] init_values [0:IMAGE_SIZE-1];
 
@@ -25,7 +25,7 @@ module encoder_tb ();
   logic IMAGE_ENCODED;
   logic INFERENCE_DONE;
 
-  logic [IMAGE_SIZE_BITS:0] AERIN_ADDR;
+  logic [IMAGE_SIZE_BITS+1:0] AERIN_ADDR;
   logic AERIN_REQ;
   logic AERIN_ACK;
 
@@ -167,8 +167,8 @@ module encoder_tb ();
   task automatic auto_ack (
     ref    logic       req,
     ref    logic       ack,
-    ref    logic [7:0] addr,
-    ref    logic [7:0] pixel_id,
+    ref    logic [9:0] addr,
+    ref    logic [9:0] pixel_id,
     ref    logic       verbose
   );
 

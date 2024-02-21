@@ -27,7 +27,7 @@ module sorter3 #(
     input logic INFERENCE_DONE,
     
     // Next index sorted
-    output logic [IMAGE_SIZE_BITS:0] NEXT_INDEX,
+    output logic [IMAGE_SIZE_BITS+1:0] NEXT_INDEX,
     output logic FOUND_NEXT_INDEX,
     
     // Image sorted
@@ -45,6 +45,7 @@ module sorter3 #(
     DECREMENT_INTENSITY,
     INCREMENT_PIXEL_ID,
     INCREMENT_SORTED_INDEX,
+    SEND_AER_RST,
     SEND_AER,
     COMPARE_SORTED_INDEX,
     WAIT_AER,
@@ -59,7 +60,8 @@ module sorter3 #(
 
   logic [PIXEL_BITS:0] intensity;
   logic [IMAGE_SIZE_BITS:0] sorted_index;
-  logic [IMAGE_SIZE_BITS:0] pixelID;
+  logic [IMAGE_SIZE_BITS+1:0] pixelID;
+  logic [1:0] aer_reset_cnt;
 
   logic dec_intensity; 
   logic inc_pixel_id; 
@@ -77,9 +79,8 @@ module sorter3 #(
 	end
     
 	// Next state logic
-	always @(*)
-		case(state)
-			IDLE                    :	if (NEW_IMAGE)                      nextstate = INNER_LOOP;
+	always @(*)case(state)
+			IDLE                    :	if (NEW_IMAGE)                      nextstate = SEND_AER;
                                 else                                nextstate = IDLE;
       INNER_LOOP              : if (INFERENCE_DONE)                 nextstate = IDLE;
                                 else if (pixelID < IMAGE_SIZE)
@@ -89,7 +90,9 @@ module sorter3 #(
       DECREMENT_INTENSITY     :                                     nextstate = INNER_LOOP;
       INCREMENT_PIXEL_ID      :                                     nextstate = INNER_LOOP;
 		  SEND_AER                :                                     nextstate = WAIT_AER;
-      WAIT_AER                : if (!AERIN_CTRL_BUSY)               nextstate = INCREMENT_SORTED_INDEX;
+      WAIT_AER                : if (!AERIN_CTRL_BUSY)               
+                                  if (aer_reset_cnt == 2)           nextstate = INCREMENT_SORTED_INDEX;
+                                  else                              nextstate = SEND_AER;
                                 else                                nextstate = WAIT_AER;
       INCREMENT_SORTED_INDEX  :                                     nextstate = COMPARE_SORTED_INDEX;
       COMPARE_SORTED_INDEX    : if (sorted_index == IMAGE_SIZE)     nextstate = DONE;
@@ -116,6 +119,13 @@ module sorter3 #(
     else if (state == IDLE)     intensity <= PIXEL_MAX_VALUE;
     else if (dec_intensity)     intensity <= intensity - 1;
     else                        intensity <= intensity;
+
+    always_ff @(posedge CLK, posedge RST)
+    if      (RST)                   aer_reset_cnt <= 0;
+    else if (state == IDLE)         aer_reset_cnt <= 0;
+    else if (state == SEND_AER)     aer_reset_cnt <= (aer_reset_cnt == 2) ? aer_reset_cnt: aer_reset_cnt + 1;
+
+    else                            aer_reset_cnt <= aer_reset_cnt;
           
   // Output logic      
   always @(*) begin  
@@ -176,6 +186,14 @@ module sorter3 #(
       FOUND_NEXT_INDEX  <= 1'b1;
       IMAGE_ENCODED     <= 1'b0;
 
+    end else if (state == SEND_AER) begin
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
+
+      FOUND_NEXT_INDEX  <= 1'b1;
+      IMAGE_ENCODED     <= 1'b0;
+
     end else if (state == COMPARE_SORTED_INDEX) begin
       dec_intensity     <= 1'b0; 
       inc_pixel_id      <= 1'b0; 
@@ -205,7 +223,8 @@ module sorter3 #(
 
   // Output
   always_ff @(posedge CLK, posedge RST)
-    if      (RST)       NEXT_INDEX <= 0;
-    else if (IMAGE[pixelID] == intensity)  NEXT_INDEX <= pixelID;
+    if      (RST)                           NEXT_INDEX <= 0;
+    else if (aer_reset_cnt < 2)             NEXT_INDEX <= {1'b0,1'b1,8'hFF};
+    else if (IMAGE[pixelID] == intensity)   NEXT_INDEX <= pixelID;
 
 endmodule 

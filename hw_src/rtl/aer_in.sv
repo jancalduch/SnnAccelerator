@@ -10,7 +10,7 @@ module aer_in #(
   input  wire           RST,
     
   // Pixel ID data input -----------------------------
-  input  wire [  IMAGE_SIZE_BITS:0] NEXT_INDEX,
+  input  wire [  IMAGE_SIZE_BITS+1:0] NEXT_INDEX,
 
   // Input from sorter --------------------------
   input  wire           FOUND_NEXT_INDEX,
@@ -19,7 +19,7 @@ module aer_in #(
   output reg            AERIN_CTRL_BUSY,
     
 	// Output 8-bit AER link --------------------------
-	output reg  [  IMAGE_SIZE_BITS:0] AERIN_ADDR, 
+	output reg  [  IMAGE_SIZE_BITS+1:0] AERIN_ADDR, 
 	output reg  	      AERIN_REQ,
 	input  wire 	      AERIN_ACK
 );
