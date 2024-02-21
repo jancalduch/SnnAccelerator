@@ -1,8 +1,8 @@
 module encoder_tb ();
 
-  localparam IMAGE_SIZE      = 5;
+  localparam IMAGE_SIZE      = 256;
   localparam IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE);
-  localparam PIXEL_MAX_VALUE = 10;
+  localparam PIXEL_MAX_VALUE = 255;
 	localparam PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE);
 
   // ------------------------------
@@ -13,6 +13,8 @@ module encoder_tb ();
   logic         auto_ack_verbose;
   
   logic         [IMAGE_SIZE_BITS:0] pixel_id_spike;
+
+  logic         [PIXEL_BITS:0] init_values [0:IMAGE_SIZE-1];
 
   // DUT
   logic         CLK;
@@ -25,6 +27,8 @@ module encoder_tb ();
   logic [IMAGE_SIZE_BITS:0] AEROUT_ADDR;
   logic AEROUT_REQ;
   logic AEROUT_ACK;
+
+  
 
   // ------------------------------
   // -- Init
@@ -41,6 +45,11 @@ module encoder_tb ();
     for (int i = 0; i < IMAGE_SIZE; i++) begin
       IMAGE[i] = 0;
     end
+
+    // Image to encode
+    init_values = '{
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 70, 194, 250, 210, 122, 100, 19, 0, 0, 0, 0, 0, 0, 0, 7, 64, 192, 178, 79, 93, 154, 187, 24, 0, 0, 0, 0, 0, 0, 1, 28, 159, 166, 35, 3, 43, 186, 128, 0, 0, 0, 0, 0, 0, 0, 5, 89, 228, 73, 0, 8, 118, 215, 47, 0, 0, 0, 0, 0, 0, 0, 0, 81, 239, 131, 89, 147, 243, 187, 4, 0, 0, 0, 0, 0, 0, 0, 0, 12, 132, 200, 200, 156, 200, 110, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 26, 27, 89, 206, 71, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 136, 157, 34, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 28, 196, 127, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 54, 179, 94, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 60, 152, 80, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 44, 29, 2, 0, 0, 0, 0, 0
+    };
 
   end
 
@@ -103,10 +112,15 @@ module encoder_tb ();
 
     wait_ns(2);
 
-    // Generate an image
+    // // Generate an image
+    // for (int i = 0; i < IMAGE_SIZE; i++) begin
+    //   IMAGE[i] = $urandom_range(0, PIXEL_MAX_VALUE);
+    // end
+
     for (int i = 0; i < IMAGE_SIZE; i++) begin
-      IMAGE[i] = $urandom_range(0, PIXEL_MAX_VALUE);
+      IMAGE[i] = init_values[i];
     end
+
     $display("Image sent:");
     for (int i = 0; i < IMAGE_SIZE; i++) begin
       $write("%d: ", i);
