@@ -23,6 +23,7 @@ module encoder_tb ();
   logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1];
   logic NEW_IMAGE; 
   logic IMAGE_ENCODED;
+  logic INFERENCE_DONE;
 
   logic [IMAGE_SIZE_BITS:0] AERIN_ADDR;
   logic AERIN_REQ;
@@ -38,6 +39,7 @@ module encoder_tb ();
     sorter_ready  = 1'b0;
     NEW_IMAGE     = 1'b0;
     AERIN_ACK     = 1'b0;
+    INFERENCE_DONE = 1'b0;
 
     auto_ack_verbose = 1'b0;
 
@@ -93,6 +95,8 @@ module encoder_tb ();
     .IMAGE            ( IMAGE             ),
     .NEW_IMAGE        ( NEW_IMAGE         ),
 
+    .INFERENCE_DONE   ( INFERENCE_DONE    ),
+
     // Image sorted
     .IMAGE_ENCODED    ( IMAGE_ENCODED     ),
 
@@ -139,8 +143,11 @@ module encoder_tb ();
     wait_ns(4);
     NEW_IMAGE = 1'b0;
 
-    // Output each value until the whole image has been sorted
-    while (!IMAGE_ENCODED) wait_ns(1);
+    // Output each value until we dont need to send values anymore
+    wait_ns(200000);
+    INFERENCE_DONE = 1'b1;
+    wait_ns(4);
+    INFERENCE_DONE = 1'b0;
 
     wait_ns(500);
     $finish;

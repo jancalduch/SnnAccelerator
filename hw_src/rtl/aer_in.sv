@@ -1,7 +1,7 @@
 module aer_in #(
-	parameter IMAGE_SIZE      = 5,
+	parameter IMAGE_SIZE      = 256,
   parameter IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
-  parameter PIXEL_MAX_VALUE = 10,
+  parameter PIXEL_MAX_VALUE = 255,
 	parameter PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE)
 )(
 

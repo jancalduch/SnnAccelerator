@@ -8,9 +8,9 @@
 
 
 module sorter3 #(
-	parameter IMAGE_SIZE      = 5,
+	parameter IMAGE_SIZE      = 256,
   parameter IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
-  parameter PIXEL_MAX_VALUE = 10,
+  parameter PIXEL_MAX_VALUE = 255,
 	parameter PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE)
 )(
     // Global inputs ----------------------------------
@@ -23,6 +23,8 @@ module sorter3 #(
 
     // From AER
     input logic AERIN_CTRL_BUSY,
+
+    input logic INFERENCE_DONE,
     
     // Next index sorted
     output logic [IMAGE_SIZE_BITS:0] NEXT_INDEX,
@@ -79,7 +81,8 @@ module sorter3 #(
 		case(state)
 			IDLE                    :	if (NEW_IMAGE)                      nextstate = INNER_LOOP;
                                 else                                nextstate = IDLE;
-      INNER_LOOP              : if (pixelID < IMAGE_SIZE)
+      INNER_LOOP              : if (INFERENCE_DONE)                 nextstate = IDLE;
+                                else if (pixelID < IMAGE_SIZE)
                                   if (IMAGE[pixelID] == intensity)  nextstate = SEND_AER;
                                   else                              nextstate = INCREMENT_PIXEL_ID;
                                 else                                nextstate = DECREMENT_INTENSITY;

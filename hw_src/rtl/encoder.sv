@@ -1,7 +1,7 @@
 module encoder #(
-	parameter IMAGE_SIZE      = 5,
+	parameter IMAGE_SIZE      = 526,
   parameter IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
-  parameter PIXEL_MAX_VALUE = 10,
+  parameter PIXEL_MAX_VALUE = 255,
 	parameter PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE)
 )(
     // Global inputs ----------------------------------
@@ -11,6 +11,9 @@ module encoder #(
     // Input image
     input logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1],
     input logic NEW_IMAGE,
+
+    // Control signal
+    input logic INFERENCE_DONE,
        
     // Image sorted
     output logic IMAGE_ENCODED,
@@ -47,6 +50,8 @@ module encoder #(
     // Input image 
     .IMAGE            ( IMAGE             ),
     .NEW_IMAGE        ( NEW_IMAGE         ),
+
+    .INFERENCE_DONE   ( INFERENCE_DONE    ),
 
     // From AER
     .AERIN_CTRL_BUSY  ( AERIN_CTRL_BUSY  ),
