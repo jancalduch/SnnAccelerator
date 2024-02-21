@@ -91,7 +91,8 @@ module sorter3 #(
       INCREMENT_PIXEL_ID      :                                     nextstate = INNER_LOOP;
 		  SEND_AER                :                                     nextstate = WAIT_AER;
       WAIT_AER                : if (!AERIN_CTRL_BUSY)               
-                                  if (aer_reset_cnt == 2)           nextstate = INCREMENT_SORTED_INDEX;
+                                  if (aer_reset_cnt == 2)           nextstate = INNER_LOOP;
+                                  else if (aer_reset_cnt == 3)      nextstate = INCREMENT_SORTED_INDEX;
                                   else                              nextstate = SEND_AER;
                                 else                                nextstate = WAIT_AER;
       INCREMENT_SORTED_INDEX  :                                     nextstate = COMPARE_SORTED_INDEX;
@@ -123,8 +124,7 @@ module sorter3 #(
     always_ff @(posedge CLK, posedge RST)
     if      (RST)                   aer_reset_cnt <= 0;
     else if (state == IDLE)         aer_reset_cnt <= 0;
-    else if (state == SEND_AER)     aer_reset_cnt <= (aer_reset_cnt == 2) ? aer_reset_cnt: aer_reset_cnt + 1;
-
+    else if (state == SEND_AER)     aer_reset_cnt <= (aer_reset_cnt == 3) ? aer_reset_cnt: aer_reset_cnt + 1;
     else                            aer_reset_cnt <= aer_reset_cnt;
           
   // Output logic      
