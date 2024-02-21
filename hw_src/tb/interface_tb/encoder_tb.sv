@@ -1,31 +1,30 @@
-module sorter_tb ();
+module encoder_tb ();
 
-  localparam IMAGE_SIZE      = 7;
+  localparam IMAGE_SIZE      = 5;
   localparam IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE);
-  localparam PIXEL_MAX_VALUE = 255;
+  localparam PIXEL_MAX_VALUE = 10;
 	localparam PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE);
 
   // ------------------------------
   // -- Logic
   // ------------------------------
+  // TB
   logic         sorter_ready;
+  logic         auto_ack_verbose;
   
+  logic         [IMAGE_SIZE_BITS:0] pixel_id_spike;
+
+  // DUT
   logic         CLK;
   logic         RST;
 
-  // Input image
   logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1];
-  logic NEW_IMAGE;
-
-  // From AER
-  logic AEROUT_CTRL_BUSY;
-  
-  // Next index sorted
-  logic [PIXEL_BITS:0] NEXT_INDEX;
-  logic FOUND_NEXT_INDEX;
-  
-  // Image sorted
+  logic NEW_IMAGE; 
   logic IMAGE_ENCODED;
+
+  logic [IMAGE_SIZE_BITS:0] AEROUT_ADDR;
+  logic AEROUT_REQ;
+  logic AEROUT_ACK;
 
   // ------------------------------
   // -- Init
@@ -34,7 +33,9 @@ module sorter_tb ();
   initial begin
     sorter_ready      = 1'b0;
     NEW_IMAGE         = 1'b0;
-    AEROUT_CTRL_BUSY  = 1'b0;
+    AEROUT_ACK  =  1'b0;
+
+    auto_ack_verbose = 1'b0;
 
     // Initialize image to 0
     for (int i = 0; i < IMAGE_SIZE; i++) begin
@@ -69,7 +70,12 @@ module sorter_tb ();
   // ------------------------------
   // -- DUT and assignments
   // ------------------------------
-  sorter3 u_sorter (
+  encoder #(
+    IMAGE_SIZE,
+    IMAGE_SIZE_BITS,
+    PIXEL_MAX_VALUE,
+    PIXEL_BITS
+  )u_encoder (
     // Global input
     .CLK              ( CLK               ),
     .RST              ( RST               ),
@@ -78,15 +84,14 @@ module sorter_tb ();
     .IMAGE            ( IMAGE             ),
     .NEW_IMAGE        ( NEW_IMAGE         ),
 
-    // From AER
-    .AEROUT_CTRL_BUSY ( AEROUT_CTRL_BUSY  ),
-
-    // Next index sorted
-    .NEXT_INDEX       ( NEXT_INDEX        ),
-    .FOUND_NEXT_INDEX ( FOUND_NEXT_INDEX  ),
-
     // Image sorted
-    .IMAGE_ENCODED    ( IMAGE_ENCODED     )
+    .IMAGE_ENCODED    ( IMAGE_ENCODED     ),
+
+    // Output 8-bit AER link --------------------------
+    .AEROUT_ADDR      ( AEROUT_ADDR       ),
+    .AEROUT_REQ       ( AEROUT_REQ        ),
+    .AEROUT_ACK       ( AEROUT_ACK        )
+
   );
 
   // ------------------------------
@@ -105,8 +110,15 @@ module sorter_tb ();
     $display("Image sent:");
     for (int i = 0; i < IMAGE_SIZE; i++) begin
       $write("%d: ", i);
-      $display("%h", IMAGE[i]);
+      $display("%d", IMAGE[i]);
     end
+
+    fork
+      auto_ack(.req(AEROUT_REQ), .ack(AEROUT_ACK), .addr(AEROUT_ADDR), .pixel_id(pixel_id_spike), .verbose(auto_ack_verbose));
+    join_none
+
+    //Start monitoring output spikes in the console
+    auto_ack_verbose = 1'b1;
 
     // Signal that there is a new image
     NEW_IMAGE = 1'b1;
@@ -114,15 +126,7 @@ module sorter_tb ();
     NEW_IMAGE = 1'b0;
 
     // Output each value until the whole image has been sorted
-    while (!IMAGE_ENCODED) begin
-      while(!FOUND_NEXT_INDEX) wait_ns(1);
-      AEROUT_CTRL_BUSY = 1'b1;
-      wait_ns(4);
-      $display("Next index: %d", NEXT_INDEX);
-      wait_ns(6);
-      AEROUT_CTRL_BUSY = 1'b0;
-
-    end
+    while (!IMAGE_ENCODED) wait_ns(1);
 
     wait_ns(500);
     $finish;
@@ -135,5 +139,30 @@ module sorter_tb ();
     integer tics_ns;
     #tics_ns;
   endtask
+
+  /***************************
+	 AER automatic acknowledge
+	***************************/
+  task automatic auto_ack (
+    ref    logic       req,
+    ref    logic       ack,
+    ref    logic [7:0] addr,
+    ref    logic [7:0] pixel_id,
+    ref    logic       verbose
+  );
+
+  forever begin
+    while (~req) wait_ns(1);
+    wait_ns(100);
+    pixel_id = addr;
+    if (verbose)
+      $display("----- IL SPIKE (FROM encder): Event from pixel ID %d", pixel_id);
+    ack = 1'b1;
+    while (req) wait_ns(1);
+    wait_ns(100);
+    ack = 1'b0;
+  end
+
+endtask
 
 endmodule
