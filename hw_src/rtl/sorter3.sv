@@ -43,9 +43,9 @@ module sorter3 #(
     DECREMENT_INTENSITY,
     INCREMENT_PIXEL_ID,
     INCREMENT_SORTED_INDEX,
-    FOUND_INDEX,
-    COMPARE_SORTED_INDEX,
     SEND_AER,
+    COMPARE_SORTED_INDEX,
+    WAIT_AER,
     DONE
 
   } state_t;
@@ -80,14 +80,14 @@ module sorter3 #(
 			IDLE                    :	if (NEW_IMAGE)                      nextstate = INNER_LOOP;
                                 else                                nextstate = IDLE;
       INNER_LOOP              : if (pixelID < IMAGE_SIZE)
-                                  if (IMAGE[pixelID] == intensity)  nextstate = FOUND_INDEX;
+                                  if (IMAGE[pixelID] == intensity)  nextstate = SEND_AER;
                                   else                              nextstate = INCREMENT_PIXEL_ID;
                                 else                                nextstate = DECREMENT_INTENSITY;
       DECREMENT_INTENSITY     :                                     nextstate = INNER_LOOP;
       INCREMENT_PIXEL_ID      :                                     nextstate = INNER_LOOP;
-		  FOUND_INDEX:                                                  nextstate = SEND_AER;
-      SEND_AER                : if (!AEROUT_CTRL_BUSY)              nextstate = INCREMENT_SORTED_INDEX;
-                                else                                nextstate = SEND_AER;
+		  SEND_AER                :                                     nextstate = WAIT_AER;
+      WAIT_AER                : if (!AEROUT_CTRL_BUSY)              nextstate = INCREMENT_SORTED_INDEX;
+                                else                                nextstate = WAIT_AER;
       INCREMENT_SORTED_INDEX  :                                     nextstate = COMPARE_SORTED_INDEX;
       COMPARE_SORTED_INDEX    : if (sorted_index == IMAGE_SIZE)     nextstate = DONE;
                                 else                                nextstate = INCREMENT_PIXEL_ID;
@@ -157,7 +157,7 @@ module sorter3 #(
       FOUND_NEXT_INDEX  <= 1'b0;
       IMAGE_ENCODED     <= 1'b0;
 
-    end else if (state == SEND_AER) begin
+    end else if (state == WAIT_AER) begin
       dec_intensity     <= 1'b0; 
       inc_pixel_id      <= 1'b0; 
       inc_sorted_index  <= 1'b0;
@@ -165,7 +165,7 @@ module sorter3 #(
       FOUND_NEXT_INDEX  <= 1'b0;
       IMAGE_ENCODED     <= 1'b0;
 
-    end else if (state == FOUND_INDEX) begin
+    end else if (state == SEND_AER) begin
       dec_intensity     <= 1'b0; 
       inc_pixel_id      <= 1'b0; 
       inc_sorted_index  <= 1'b0;
