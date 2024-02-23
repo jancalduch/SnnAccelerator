@@ -92,21 +92,6 @@ module sorter4 #(
       default:    							                                nextstate = IDLE;
 		endcase
 
-
-    // case(state)
-		// 	WAIT:	
-    //     if (AEROUT_CTRL_BUSY)                 nextstate = WAIT;
-    //     else if (~SCHED_EMPTY)                nextstate = POP_NEUR;
-    //     else                                  nextstate = WAIT;
-		// 	POP_NEUR: 
-    //     if (ctrl_cnt[8:0] == {SPI_MAX_NEUR,1'b1}) nextstate = AER_POP;
-		// 		else                                      nextstate = POP_NEUR;                
-    //   AER_POP:   
-    //     if (!AEROUT_CTRL_BUSY)                    nextstate = WAIT;
-    //     else                                      nextstate = AER_POP;   
-		// 	default: nextstate = WAIT;
-		// endcase 
-
   //----------------------------------------------------------------------------
 	//	COUNTERS
 	//----------------------------------------------------------------------------
