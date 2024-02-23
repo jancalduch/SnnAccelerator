@@ -37,7 +37,7 @@ module encoder #(
   //----------------------------------------------------------------------------
   
   // Sorter
-  sorter3 #(
+  sorter4 #(
     IMAGE_SIZE,
     IMAGE_SIZE_BITS,
     PIXEL_MAX_VALUE,

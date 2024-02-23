@@ -78,7 +78,8 @@ module sorter3 #(
 	end
     
 	// Next state logic
-	always @(*)case(state)
+	always @(*)
+    case(state)
 			IDLE                    :	if (NEW_IMAGE)                      nextstate = SEND_AER;
                                 else                                nextstate = IDLE;
       INNER_LOOP              : if (INFERENCE_DONE)                 nextstate = IDLE;

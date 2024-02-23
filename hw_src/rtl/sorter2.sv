@@ -8,9 +8,9 @@
 
 
 module sorter2 #(
-	parameter IMAGE_SIZE      = 5,
+	parameter IMAGE_SIZE      = 256,
   parameter IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
-  parameter PIXEL_MAX_VALUE = 10,
+  parameter PIXEL_MAX_VALUE = 255,
 	parameter PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE)
 )(
     // Global inputs ----------------------------------
@@ -18,12 +18,20 @@ module sorter2 #(
     input  logic           RST,
 
     // Input image
-    input logic [PIXEL_BITS:0] image [0:IMAGE_SIZE-1],
-    input logic new_image,
+    input logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1],
+    input logic NEW_IMAGE,
+
+    // From AER
+    input logic AERIN_CTRL_BUSY,
+
+    input logic INFERENCE_DONE,
     
-    // Encoded image (sorted index in decreasing pixel value)
-    output logic [PIXEL_BITS:0] sorted_indexes [0:IMAGE_SIZE-1],
-    output logic done
+    // Next index sorted
+    output logic [IMAGE_SIZE_BITS+1:0] NEXT_INDEX,
+    output logic FOUND_NEXT_INDEX,
+    
+    // Image sorted
+    output logic IMAGE_ENCODED
 );
     
   //----------------------------------------------------------------------------
@@ -37,8 +45,10 @@ module sorter2 #(
     DECREMENT_INTENSITY,
     INCREMENT_PIXEL_ID,
     INCREMENT_SORTED_INDEX,
-    STORE_INDEX,
+    SEND_AER_RST,
+    SEND_AER,
     COMPARE_SORTED_INDEX,
+    WAIT_AER,
     DONE
 
   } state_t;
@@ -50,12 +60,12 @@ module sorter2 #(
 
   logic [PIXEL_BITS:0] intensity;
   logic [IMAGE_SIZE_BITS:0] sorted_index;
-  logic [IMAGE_SIZE_BITS:0] pixelID;
+  logic [IMAGE_SIZE_BITS+1:0] pixelID;
+  logic [1:0] aer_reset_cnt;
 
   logic dec_intensity; 
   logic inc_pixel_id; 
-  logic inc_sorted_index; 
-  logic store_index;
+  logic inc_sorted_index;
 
   //----------------------------------------------------------------------------
 	//	CONTROL FSM
@@ -69,17 +79,22 @@ module sorter2 #(
 	end
     
 	// Next state logic
-	always @(*)
-		case(state)
-			IDLE                    :	if (new_image)                      nextstate = INNER_LOOP;
+	always @(*)case(state)
+			IDLE                    :	if (NEW_IMAGE)                      nextstate = SEND_AER;
                                 else                                nextstate = IDLE;
-      INNER_LOOP              : if (pixelID < IMAGE_SIZE)
-                                  if (image[pixelID] == intensity)  nextstate = STORE_INDEX;
+      INNER_LOOP              : if (INFERENCE_DONE)                 nextstate = IDLE;
+                                else if (pixelID < IMAGE_SIZE)
+                                  if (IMAGE[pixelID] == intensity)  nextstate = SEND_AER;
                                   else                              nextstate = INCREMENT_PIXEL_ID;
                                 else                                nextstate = DECREMENT_INTENSITY;
       DECREMENT_INTENSITY     :                                     nextstate = INNER_LOOP;
       INCREMENT_PIXEL_ID      :                                     nextstate = INNER_LOOP;
-		  STORE_INDEX             :                                     nextstate = INCREMENT_SORTED_INDEX;
+		  SEND_AER                :                                     nextstate = WAIT_AER;
+      WAIT_AER                : if (!AERIN_CTRL_BUSY)               
+                                  if (aer_reset_cnt == 2)           nextstate = INNER_LOOP;
+                                  else if (aer_reset_cnt == 3)      nextstate = INCREMENT_SORTED_INDEX;
+                                  else                              nextstate = SEND_AER;
+                                else                                nextstate = WAIT_AER;
       INCREMENT_SORTED_INDEX  :                                     nextstate = COMPARE_SORTED_INDEX;
       COMPARE_SORTED_INDEX    : if (sorted_index == IMAGE_SIZE)     nextstate = DONE;
                                 else                                nextstate = INCREMENT_PIXEL_ID;
@@ -88,111 +103,128 @@ module sorter2 #(
 		endcase
 
   // Counters
-  always @(posedge CLK, posedge RST)
+  always_ff @(posedge CLK, posedge RST)
     if      (RST)               sorted_index <= 0;
     else if (state == IDLE)     sorted_index <= 0;
     else if (inc_sorted_index)  sorted_index <= sorted_index + 1;
     else                        sorted_index <= sorted_index;
 
-    always @(posedge CLK, posedge RST)
-      if      (RST)           pixelID <= 0;
-      else if (state == IDLE || state == DECREMENT_INTENSITY) pixelID <= 0;
-      else if (inc_pixel_id)  pixelID <= pixelID + 1;
-      else                    pixelID <= pixelID;
+  always_ff @(posedge CLK, posedge RST)
+    if      (RST)           pixelID <= 0;
+    else if (state == IDLE || state == DECREMENT_INTENSITY) pixelID <= 0;
+    else if (inc_pixel_id)  pixelID <= pixelID + 1;
+    else                    pixelID <= pixelID;
 
-    always @(posedge CLK, posedge RST)
-      if      (RST)               intensity <= PIXEL_MAX_VALUE;
-      else if (state == IDLE)     intensity <= PIXEL_MAX_VALUE;
-      else if (dec_intensity)     intensity <= intensity - 1;
-      else                        intensity <= intensity;
+  always_ff @(posedge CLK, posedge RST)
+    if      (RST)               intensity <= PIXEL_MAX_VALUE;
+    else if (state == IDLE)     intensity <= PIXEL_MAX_VALUE;
+    else if (dec_intensity)     intensity <= intensity - 1;
+    else                        intensity <= intensity;
+
+    always_ff @(posedge CLK, posedge RST)
+    if      (RST)                   aer_reset_cnt <= 0;
+    else if (state == IDLE)         aer_reset_cnt <= 0;
+    else if (state == SEND_AER)     aer_reset_cnt <= (aer_reset_cnt == 3) ? aer_reset_cnt: aer_reset_cnt + 1;
+    else                            aer_reset_cnt <= aer_reset_cnt;
           
   // Output logic      
   always @(*) begin  
       
     if (state == IDLE) begin
-      dec_intensity     = 1'b0;
-      inc_pixel_id      = 1'b0;
-      inc_sorted_index  = 1'b0;
-      store_index       = 1'b0;
-
-      done              = 1'b0;
-      sorted_indexes = sorted_indexes;
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
+      
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b0;
         
     end else if (state == INNER_LOOP) begin
-      dec_intensity     = 1'b0;
-      inc_pixel_id      = 1'b0;
-      inc_sorted_index  = 1'b0;
-      store_index       = 1'b0;
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
 
-      done              = 1'b0;
-      sorted_indexes = sorted_indexes;
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b0;
       
     end else if (state == DECREMENT_INTENSITY) begin
-      dec_intensity     = 1'b1;
-      inc_pixel_id      = 1'b0;
-      inc_sorted_index  = 1'b0;
-      store_index       = 1'b0;
-
-      done              = 1'b0;
-      sorted_indexes = sorted_indexes;
+      dec_intensity     <= 1'b1; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
+      
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b0;
 
     end else if (state == INCREMENT_PIXEL_ID) begin
-      dec_intensity     = 1'b0;
-      inc_pixel_id      = 1'b1;
-      inc_sorted_index  = 1'b0;
-      store_index       = 1'b0;
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b1; 
+      inc_sorted_index  <= 1'b0;
 
-      done              = 1'b0;
-      sorted_indexes = sorted_indexes;
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b0;
 
     end else if (state == INCREMENT_SORTED_INDEX) begin
-      dec_intensity     = 1'b0;
-      inc_pixel_id      = 1'b0;
-      inc_sorted_index  = 1'b1;
-      store_index       = 1'b0;
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b1;
 
-      done              = 1'b0;
-      sorted_indexes = sorted_indexes;
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b0;
 
-    end else if (state == STORE_INDEX) begin
-      dec_intensity     = 1'b0;
-      inc_pixel_id      = 1'b0;
-      inc_sorted_index  = 1'b0;
-      store_index       = 1'b1;
+    end else if (state == WAIT_AER) begin
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
 
-      done              = 1'b0;
-      sorted_indexes[sorted_index] = pixelID;
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b0;
+
+    end else if (state == SEND_AER) begin
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
+
+      FOUND_NEXT_INDEX  <= 1'b1;
+      IMAGE_ENCODED     <= 1'b0;
+
+    end else if (state == SEND_AER) begin
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
+
+      FOUND_NEXT_INDEX  <= 1'b1;
+      IMAGE_ENCODED     <= 1'b0;
 
     end else if (state == COMPARE_SORTED_INDEX) begin
-      dec_intensity     = 1'b0;
-      inc_pixel_id      = 1'b0;
-      inc_sorted_index  = 1'b0;
-      store_index       = 1'b0;
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
 
-      done              = 1'b0;
-      sorted_indexes = sorted_indexes;
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b0;
 
     end else if (state == DONE) begin
-      dec_intensity     = 1'b0;
-      inc_pixel_id      = 1'b0;
-      inc_sorted_index  = 1'b0;
-      store_index       = 1'b0;
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
 
-      done              = 1'b1;
-      sorted_indexes = sorted_indexes;
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b1;
 
     end else begin
-      dec_intensity     = 1'b0;
-      inc_pixel_id      = 1'b0;
-      inc_sorted_index  = 1'b0;
-      store_index       = 1'b0;
+      dec_intensity     <= 1'b0; 
+      inc_pixel_id      <= 1'b0; 
+      inc_sorted_index  <= 1'b0;
 
-      done              = 1'b0;
-      sorted_indexes = sorted_indexes;
+      FOUND_NEXT_INDEX  <= 1'b0;
+      IMAGE_ENCODED     <= 1'b0; 
 
     end
   end
 
   // Output
+  always_ff @(posedge CLK, posedge RST)
+    if      (RST)                           NEXT_INDEX <= 0;
+    else if (aer_reset_cnt < 2)             NEXT_INDEX <= {1'b0,1'b1,8'hFF};
+    else if (IMAGE[pixelID] == intensity)   NEXT_INDEX <= pixelID;
 
 endmodule 
