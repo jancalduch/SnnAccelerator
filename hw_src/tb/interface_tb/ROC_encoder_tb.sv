@@ -14,7 +14,7 @@ module ROC_encoder_tb ();
   logic         RST;
 
   // Input image
-  logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1];
+  logic [PIXEL_BITS-1:0] IMAGE [0:IMAGE_SIZE-1];
   logic NEW_IMAGE;
 
   // From AER
@@ -22,8 +22,8 @@ module ROC_encoder_tb ();
   
   logic FIRST_INFERENCE_DONE;
 
-  // Next index sorted
-  logic [PIXEL_BITS:0] NEXT_INDEX;
+  // 10/bit input AER link
+  logic [9:0] NEXT_INDEX;
   logic FOUND_NEXT_INDEX;
   
   // Image sorted / inference finished
@@ -36,7 +36,8 @@ module ROC_encoder_tb ();
   initial begin
     sorter_ready      = 1'b0;
     NEW_IMAGE         = 1'b0;
-    AEROUT_CTRL_BUSY  = 1'b0;
+    AERIN_CTRL_BUSY  = 1'b0;
+    FIRST_INFERENCE_DONE = 1'b0;
 
     // Initialize image to 0
     for (int i = 0; i < IMAGE_SIZE; i++) begin
@@ -71,7 +72,12 @@ module ROC_encoder_tb ();
   // ------------------------------
   // -- DUT and assignments
   // ------------------------------
-  ROC_encoder u_ROC_encoder (
+  ROC_encoder #(
+    IMAGE_SIZE,
+    IMAGE_SIZE_BITS,
+    PIXEL_MAX_VALUE,
+    PIXEL_BITS
+  )u_ROC_encoder (
     // Global input
     .CLK              ( CLK               ),
     .RST              ( RST               ),
@@ -81,7 +87,7 @@ module ROC_encoder_tb ();
     .NEW_IMAGE        ( NEW_IMAGE         ),
 
     // From AER
-    .AEROUT_CTRL_BUSY ( AERIN_CTRL_BUSY  ),
+    .AERIN_CTRL_BUSY ( AERIN_CTRL_BUSY  ),
 
     .FIRST_INFERENCE_DONE (FIRST_INFERENCE_DONE),
 
@@ -119,16 +125,21 @@ module ROC_encoder_tb ();
 
     // Output each value until the whole image has been sorted
     while (!ENCODER_RDY) begin
-      while(!FOUND_NEXT_INDEX) wait_ns(1);
-      AERIN_CTRL_BUSY = 1'b1;
-      wait_ns(4);
-      $display("Next index: %d", NEXT_INDEX);
-      wait_ns(6);
-      AERIN_CTRL_BUSY = 1'b0;
-
+      if (FOUND_NEXT_INDEX) begin
+        // Wait 1 clk for AER to set CTRL_BUSY
+        wait_ns(4);
+        AERIN_CTRL_BUSY = 1'b1;
+        // Wait 1 clk to output value
+        wait_ns(4);
+        $display("Next index: %d", NEXT_INDEX);
+        // Wait until we get ACK
+        wait_ns(8);
+        AERIN_CTRL_BUSY = 1'b0;
+      end
+      wait_ns(1);
     end
 
-    wait_ns(500);
+    wait_ns(200);
     $finish;
 
   end

@@ -18,7 +18,7 @@ module ROC_encoder #(
     input  logic           RST,
 
     // Input image
-    input logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1],
+    input logic [PIXEL_BITS-1:0] IMAGE [0:IMAGE_SIZE-1],
     input logic NEW_IMAGE,
 
     // From AER
@@ -26,8 +26,8 @@ module ROC_encoder #(
 
     input logic FIRST_INFERENCE_DONE,
     
-    // Next index sorted
-    output logic [IMAGE_SIZE_BITS+1:0] NEXT_INDEX,
+    // Next index sorted (10-bit AER link)
+    output logic [9:0] NEXT_INDEX,
     output logic FOUND_NEXT_INDEX,
     
     // Image sorted
@@ -50,13 +50,13 @@ module ROC_encoder #(
   //----------------------------------------------------------------------------
   state_t state, nextstate;  
 
-  logic [IMAGE_SIZE_BITS:0] pixelID;
-  logic [PIXEL_BITS:0] intensity;
-  logic [IMAGE_SIZE_BITS:0] indices_sent;
+  logic [IMAGE_SIZE_BITS-1:0] pixelID;
+  logic [PIXEL_BITS-1:0] intensity;
+  logic [IMAGE_SIZE_BITS-1:0] indices_sent;
   logic [1:0] aer_reset_cnt;
 
-  logic [PIXEL_BITS:0] index;
-  logic found_index;
+  // AER is 10 bits
+  logic [9:0] index;
   logic match_found;
 
 
@@ -99,7 +99,7 @@ module ROC_encoder #(
   // Counter up for pixel_ID
   always_ff @(posedge CLK or posedge RST) begin
     if (RST)                                                                        pixelID <= 0;
-    else if (state == IDLE  || ((pixelID == PIXEL_MAX_VALUE) && (state == SORT)))   pixelID <= 0;
+    else if (state == IDLE  || ((pixelID == IMAGE_SIZE - 1) && (state == SORT)))    pixelID <= 0;
     else if (!AERIN_CTRL_BUSY && (state == SORT))                                   pixelID <= pixelID + 1;
     else                                                                            pixelID <= pixelID;
   end
@@ -108,7 +108,7 @@ module ROC_encoder #(
   always_ff @(posedge CLK or posedge RST) begin
     if (RST)                              intensity <= PIXEL_MAX_VALUE;
     else if (state == IDLE)               intensity <= PIXEL_MAX_VALUE;
-    else if (pixelID == PIXEL_MAX_VALUE)  intensity <= (intensity == 0) ? intensity: intensity - 1;
+    else if (pixelID == IMAGE_SIZE - 1)   intensity <= (intensity == 0) ? intensity: intensity - 1;
     else                                  intensity <= intensity;
   end
 
@@ -138,9 +138,9 @@ module ROC_encoder #(
 	//	REGISTERS
 	//----------------------------------------------------------------------------
   always_ff @(posedge CLK, posedge RST)
-    if      (RST)                                   index <= 0;
+    if      (RST)                                   index <= 10'b0;
     else if ((state == IDLE) || aer_reset_cnt < 2)  index <= {1'b0,1'b1,8'hFF};
-    else if (match_found)                           index <= pixelID;
+    else if (match_found)                           index <= {2'b0,pixelID};
     else                                            index <= index;
 
   //----------------------------------------------------------------------------
