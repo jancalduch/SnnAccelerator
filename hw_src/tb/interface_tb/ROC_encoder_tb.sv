@@ -115,7 +115,7 @@ module ROC_encoder_tb ();
     $display("Image sent:");
     for (int i = 0; i < IMAGE_SIZE; i++) begin
       $write("%d: ", i);
-      $display("%h", IMAGE[i]);
+      $display("%d", IMAGE[i]);
     end
 
     // Signal that there is a new image
