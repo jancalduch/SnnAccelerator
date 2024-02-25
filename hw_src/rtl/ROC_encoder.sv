@@ -1,13 +1,13 @@
 //------------------------------------------------------------------------------
 //
-// "sorter.sv" - Module that outputs the indexes of pixel values based on the 
+// "ROC_encoder.sv" - Module that outputs the indexes of pixel values based on the 
 //              intensity of the input image. The brighter the pixel the earlier
 //              it goes. 
 //
 //------------------------------------------------------------------------------
 
 
-module sorter #(
+module ROC_encoder #(
 	parameter IMAGE_SIZE      = 256,
   parameter IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
   parameter PIXEL_MAX_VALUE = 255,
@@ -24,14 +24,14 @@ module sorter #(
     // From AER
     input logic AERIN_CTRL_BUSY,
 
-    input logic INFERENCE_DONE,
+    input logic FIRST_INFERENCE_DONE,
     
     // Next index sorted
     output logic [IMAGE_SIZE_BITS+1:0] NEXT_INDEX,
     output logic FOUND_NEXT_INDEX,
     
     // Image sorted
-    output logic IMAGE_ENCODED
+    output logic ENCODER_RDY
 );
   //----------------------------------------------------------------------------
 	//	PARAMETERS 
@@ -75,21 +75,21 @@ module sorter #(
 	always @(*)
     case(state)
 			IDLE:	
-        if (NEW_IMAGE)                                          nextstate = SEND_AER;
-        else                                                    nextstate = IDLE;
+        if (NEW_IMAGE)                                                nextstate = SEND_AER;
+        else                                                          nextstate = IDLE;
 		  SORT: 
-        if (INFERENCE_DONE || (indices_sent == IMAGE_SIZE))     nextstate = IDLE;
-        else if (match_found)                                   nextstate = SEND_AER;
-        else                                                    nextstate = SORT; 
-      SEND_AER:                                                 nextstate = WAIT_AER;
+        if (FIRST_INFERENCE_DONE || (indices_sent == IMAGE_SIZE))     nextstate = IDLE;
+        else if (match_found)                                         nextstate = SEND_AER;
+        else                                                          nextstate = SORT; 
+      SEND_AER:                                                       nextstate = WAIT_AER;
       WAIT_AER: 
         if (!AERIN_CTRL_BUSY)
-          if (aer_reset_cnt < 2)                                nextstate = SEND_AER;
+          if (aer_reset_cnt < 2)                                      nextstate = SEND_AER;
           else
-            if (INFERENCE_DONE || (indices_sent == IMAGE_SIZE)) nextstate = IDLE; 
-            else                                                nextstate = SORT;              
-        else                                                    nextstate = WAIT_AER;
-      default:    							                                nextstate = IDLE;
+            if (FIRST_INFERENCE_DONE || (indices_sent == IMAGE_SIZE)) nextstate = IDLE; 
+            else                                                      nextstate = SORT;              
+        else                                                          nextstate = WAIT_AER;
+      default:    							                                      nextstate = IDLE;
 		endcase
 
   //----------------------------------------------------------------------------
@@ -98,10 +98,10 @@ module sorter #(
 
   // Counter up for pixel_ID
   always_ff @(posedge CLK or posedge RST) begin
-    if (RST)                                                pixelID <= 0;
-    else if (state == IDLE  || ((pixelID == PIXEL_MAX_VALUE) && (state == SORT)))  pixelID <= 0;
-    else if (!AERIN_CTRL_BUSY && (state == SORT))           pixelID <= pixelID + 1;
-    else                                                    pixelID <= pixelID;
+    if (RST)                                                                        pixelID <= 0;
+    else if (state == IDLE  || ((pixelID == PIXEL_MAX_VALUE) && (state == SORT)))   pixelID <= 0;
+    else if (!AERIN_CTRL_BUSY && (state == SORT))                                   pixelID <= pixelID + 1;
+    else                                                                            pixelID <= pixelID;
   end
 
   // Counter down for intensity
@@ -138,16 +138,16 @@ module sorter #(
 	//	REGISTERS
 	//----------------------------------------------------------------------------
   always_ff @(posedge CLK, posedge RST)
-    if      (RST)                           index <= 0;
-    else if (aer_reset_cnt < 2)             index <= {1'b0,1'b1,8'hFF};
-    else if (match_found)                   index <= pixelID;
-    else                                    index <= index;
+    if      (RST)                                   index <= 0;
+    else if ((state == IDLE) || aer_reset_cnt < 2)  index <= {1'b0,1'b1,8'hFF};
+    else if (match_found)                           index <= pixelID;
+    else                                            index <= index;
 
   //----------------------------------------------------------------------------
 	//	OUTPUT
 	//----------------------------------------------------------------------------
   assign FOUND_NEXT_INDEX = ((match_found && (state == SORT)) || (state == SEND_AER));
   assign NEXT_INDEX = index;
-  assign IMAGE_ENCODED = (state == IDLE) ? 1'b1: 1'b0;
+  assign ENCODER_RDY = (state == IDLE) ? 1'b1: 1'b0;
 
 endmodule 

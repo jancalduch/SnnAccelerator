@@ -1,4 +1,4 @@
-module sorter_tb ();
+module ROC_encoder_tb ();
 
   localparam IMAGE_SIZE      = 7;
   localparam IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE);
@@ -18,14 +18,16 @@ module sorter_tb ();
   logic NEW_IMAGE;
 
   // From AER
-  logic AEROUT_CTRL_BUSY;
+  logic AERIN_CTRL_BUSY;
   
+  logic FIRST_INFERENCE_DONE;
+
   // Next index sorted
   logic [PIXEL_BITS:0] NEXT_INDEX;
   logic FOUND_NEXT_INDEX;
   
-  // Image sorted
-  logic IMAGE_ENCODED;
+  // Image sorted / inference finished
+  logic ENCODER_RDY;
 
   // ------------------------------
   // -- Init
@@ -69,7 +71,7 @@ module sorter_tb ();
   // ------------------------------
   // -- DUT and assignments
   // ------------------------------
-  sorter3 u_sorter (
+  ROC_encoder u_ROC_encoder (
     // Global input
     .CLK              ( CLK               ),
     .RST              ( RST               ),
@@ -79,14 +81,16 @@ module sorter_tb ();
     .NEW_IMAGE        ( NEW_IMAGE         ),
 
     // From AER
-    .AEROUT_CTRL_BUSY ( AEROUT_CTRL_BUSY  ),
+    .AEROUT_CTRL_BUSY ( AERIN_CTRL_BUSY  ),
+
+    .FIRST_INFERENCE_DONE (FIRST_INFERENCE_DONE),
 
     // Next index sorted
     .NEXT_INDEX       ( NEXT_INDEX        ),
     .FOUND_NEXT_INDEX ( FOUND_NEXT_INDEX  ),
 
     // Image sorted
-    .IMAGE_ENCODED    ( IMAGE_ENCODED     )
+    .ENCODER_RDY    ( ENCODER_RDY     )
   );
 
   // ------------------------------
@@ -114,9 +118,9 @@ module sorter_tb ();
     NEW_IMAGE = 1'b0;
 
     // Output each value until the whole image has been sorted
-    while (!IMAGE_ENCODED) begin
+    while (!ENCODER_RDY) begin
       while(!FOUND_NEXT_INDEX) wait_ns(1);
-      AEROUT_CTRL_BUSY = 1'b1;
+      AERIN_CTRL_BUSY = 1'b1;
       wait_ns(4);
       $display("Next index: %d", NEXT_INDEX);
       wait_ns(6);
