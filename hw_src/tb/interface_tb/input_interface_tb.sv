@@ -12,20 +12,20 @@ module input_interface_tb ();
   logic         sorter_ready;
   logic         auto_ack_verbose;
   
-  logic         [IMAGE_SIZE_BITS+1:0] pixel_id_spike;
+  logic         [9:0] pixel_id_spike;
 
-  logic         [PIXEL_BITS:0] init_values [0:IMAGE_SIZE-1];
+  logic         [PIXEL_BITS-1:0] init_values [0:IMAGE_SIZE-1];
 
   // DUT
   logic         CLK;
   logic         RST;
 
-  logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1];
+  logic [PIXEL_BITS-1:0] IMAGE [0:IMAGE_SIZE-1];
   logic NEW_IMAGE; 
   logic ENCODER_RDY;
   logic FIRST_INFERENCE_DONE;
 
-  logic [IMAGE_SIZE_BITS+1:0] AERIN_ADDR;
+  logic [9:0] AERIN_ADDR;
   logic AERIN_REQ;
   logic AERIN_ACK;
 
@@ -79,12 +79,12 @@ module input_interface_tb ();
   // ------------------------------
   // -- DUT and assignments
   // ------------------------------
-  encoder #(
+  input_interface #(
     IMAGE_SIZE,
     IMAGE_SIZE_BITS,
     PIXEL_MAX_VALUE,
     PIXEL_BITS
-  )u_encoder (
+  )u_input_interface (
     // Global input
     .CLK              ( CLK               ),
     .RST              ( RST               ),

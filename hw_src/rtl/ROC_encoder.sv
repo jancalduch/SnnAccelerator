@@ -52,7 +52,7 @@ module ROC_encoder #(
 
   logic [IMAGE_SIZE_BITS-1:0] pixelID;
   logic [PIXEL_BITS-1:0] intensity;
-  logic [IMAGE_SIZE_BITS-1:0] indices_sent;
+  logic [IMAGE_SIZE_BITS:0] indices_sent;
   logic [1:0] aer_reset_cnt;
 
   // AER is 10 bits

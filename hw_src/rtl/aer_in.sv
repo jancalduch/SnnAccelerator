@@ -10,7 +10,7 @@ module aer_in #(
   input  wire           RST,
     
   // Pixel ID data input -----------------------------
-  input  wire [  IMAGE_SIZE_BITS+1:0] NEXT_INDEX,
+  input  wire [  9:0]   NEXT_INDEX,
 
   // Input from sorter --------------------------
   input  wire           FOUND_NEXT_INDEX,
@@ -18,10 +18,10 @@ module aer_in #(
   // Output to sorter ---------------------------
   output reg            AERIN_CTRL_BUSY,
     
-	// Output 8-bit AER link --------------------------
-	output reg  [  IMAGE_SIZE_BITS+1:0] AERIN_ADDR, 
-	output reg  	      AERIN_REQ,
-	input  wire 	      AERIN_ACK
+	// Input 10-bit AER link --------------------------
+	output reg  [  9:0]   AERIN_ADDR, 
+	output reg  	        AERIN_REQ,
+	input  wire 	        AERIN_ACK
 );
 
   reg            AERIN_ACK_sync_int, AERIN_ACK_sync, AERIN_ACK_sync_del; 
@@ -44,10 +44,10 @@ module aer_in #(
   assign AERIN_ACK_sync_negedge = ~AERIN_ACK_sync & AERIN_ACK_sync_del;
     
     
-  // Output AER interface
+  // Input AER interface
   always @(posedge CLK, posedge RST) begin
     if (RST) begin
-      AERIN_ADDR             <= 8'b0;
+      AERIN_ADDR             <= 10'b0;
       AERIN_REQ              <= 1'b0;
       AERIN_CTRL_BUSY        <= 1'b0;
     end else begin

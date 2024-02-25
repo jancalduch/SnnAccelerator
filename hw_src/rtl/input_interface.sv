@@ -9,7 +9,7 @@ module input_interface #(
     input  logic           RST,
 
     // Input image
-    input logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1],
+    input logic [PIXEL_BITS-1:0] IMAGE [0:IMAGE_SIZE-1],
     input logic NEW_IMAGE,
        
     // Control signal
@@ -18,8 +18,8 @@ module input_interface #(
     // Image sorted
     output logic ENCODER_RDY,
 
-    // Output 8-bit AER -------------------------------
-    output wire [IMAGE_SIZE_BITS + 1:0] AERIN_ADDR,
+    // Input 10-bit AER -------------------------------
+    output wire [9:0]     AERIN_ADDR,
     output wire 	        AERIN_REQ,
     input  wire 	        AERIN_ACK
 );
@@ -29,7 +29,8 @@ module input_interface #(
   //----------------------------------------------------------------------------
   logic AERIN_CTRL_BUSY;
 
-  logic [IMAGE_SIZE_BITS + 1:0] NEXT_INDEX;
+  // 10-bit input AER link
+  logic [9:0] NEXT_INDEX;
   logic FOUND_NEXT_INDEX;
 
   //----------------------------------------------------------------------------
@@ -85,7 +86,7 @@ module input_interface #(
     // Output to sorter ---------------------------
     .AERIN_CTRL_BUSY  ( AERIN_CTRL_BUSY   ),
     
-    // Output 8-bit AER link --------------------------
+    // Intput 10-bit AER link --------------------------
     .AERIN_ADDR       ( AERIN_ADDR        ),
     .AERIN_REQ        ( AERIN_REQ         ),
     .AERIN_ACK        ( AERIN_ACK         )
