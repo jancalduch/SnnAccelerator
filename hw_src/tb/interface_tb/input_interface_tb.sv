@@ -1,4 +1,4 @@
-module encoder_tb ();
+module input_interface_tb ();
 
   localparam IMAGE_SIZE      = 256;
   localparam IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE);
@@ -22,8 +22,8 @@ module encoder_tb ();
 
   logic [PIXEL_BITS:0] IMAGE [0:IMAGE_SIZE-1];
   logic NEW_IMAGE; 
-  logic IMAGE_ENCODED;
-  logic INFERENCE_DONE;
+  logic ENCODER_RDY;
+  logic FIRST_INFERENCE_DONE;
 
   logic [IMAGE_SIZE_BITS+1:0] AERIN_ADDR;
   logic AERIN_REQ;
@@ -39,7 +39,7 @@ module encoder_tb ();
     sorter_ready  = 1'b0;
     NEW_IMAGE     = 1'b0;
     AERIN_ACK     = 1'b0;
-    INFERENCE_DONE = 1'b0;
+    FIRST_INFERENCE_DONE = 1'b0;
 
     auto_ack_verbose = 1'b0;
 
@@ -93,10 +93,10 @@ module encoder_tb ();
     .IMAGE            ( IMAGE             ),
     .NEW_IMAGE        ( NEW_IMAGE         ),
 
-    .INFERENCE_DONE   ( INFERENCE_DONE    ),
+    .FIRST_INFERENCE_DONE   ( FIRST_INFERENCE_DONE    ),
 
     // Image sorted
-    .IMAGE_ENCODED    ( IMAGE_ENCODED     ),
+    .ENCODER_RDY    ( ENCODER_RDY     ),
 
     // Output 8-bit AER link --------------------------
     .AERIN_ADDR      ( AERIN_ADDR       ),
@@ -143,10 +143,10 @@ module encoder_tb ();
 
     // Output each value until we dont need to send values anymore
     wait_ns(200000);
-    INFERENCE_DONE = 1'b1;
-    while(!IMAGE_ENCODED) wait_ns(1);
-    INFERENCE_DONE = 1'b0;
-    // while(!IMAGE_ENCODED) wait_ns(1);
+    FIRST_INFERENCE_DONE = 1'b1;
+    while(!ENCODER_RDY) wait_ns(1);
+    FIRST_INFERENCE_DONE = 1'b0;
+    // while(!ENCODER_RDY) wait_ns(1);
 
     wait_ns(500);
     $finish;

@@ -124,7 +124,7 @@ module ROC_encoder_tb ();
       wait_ns(4);
       $display("Next index: %d", NEXT_INDEX);
       wait_ns(6);
-      AEROUT_CTRL_BUSY = 1'b0;
+      AERIN_CTRL_BUSY = 1'b0;
 
     end
 
