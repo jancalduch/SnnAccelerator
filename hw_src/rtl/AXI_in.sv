@@ -37,25 +37,25 @@ module AXI_in (
   // Image storage register
   logic [7:0] image_data[0:254]; // Assuming 255 pixel values, 8 bits each
 
-  // Read address decoding
+  // Write address decoding
   always_ff @(posedge ACLK or negedge ARESETN) begin
     if (!ARESETN) begin
       // Reset state
       // Reset image_data array
       image_data <= '0;
-    end else if (ARVALID && ARREADY) begin
-      // Read request acknowledged
-      // Read data from image_data array based on address
-      RDATA <= image_data[araddr[7:0]];
-      RRESP <= 'b00; // OKAY response
-      RVALID <= 1'b1;
+    end else if (AWVALID && AWREADY) begin
+      // Write request acknowledged
+      // Store write data into image_data array based on address
+      image_data[AWADDR[7:0]] <= WDATA[7:0];
+      BRESP <= 'b00; // OKAY response
+      BVALID <= 1'b1;
     end else begin
-      // Wait for read request
-      RVALID <= 1'b0;
+      // Wait for write request
+      BVALID <= 1'b0;
     end
   end
 
   // AXI ready signal
-  assign ARREADY = 1'b1; // Always ready to accept read requests
+  assign AWREADY = 1'b1; // Always ready to accept read requests
 
 endmodule
