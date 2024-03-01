@@ -19,8 +19,8 @@ module AXI_in (
 );
 
   // Address range:   1*32 = 32
-  // Address offset:  0x4002000
-  // Address:         0x4002000 - 0x400201F
+  // Address offset:  0x0002000
+  // Address:         0x0002000 - 0x000201F
 
 
 

@@ -25,13 +25,13 @@ module AXI_in (
 );
 
   // Address range:   256*32 (image) + 1*32 (inference) = 8224
-  // Address offset:  0x4000000
-  // Address:         0x4000000 - 0x400201F
+  // Address offset:  0x0000000
+  // Address:         0x0000000 - 0x000201F
 
 
   // Address range:   256*32 = 8k
-  // Address offset:  0x4000000
-  // Address:         0x4000000 - 0x4001FFF
+  // Address offset:  0x0000000
+  // Address:         0x0000000 - 0x0001FFF
 
 
   // Image storage register
