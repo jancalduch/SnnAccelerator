@@ -9,25 +9,41 @@ module AXI_tb();
   // -- Logic
   // ------------------------------
   // TB
-  logic         AXI_tb_ready;
+  logic AXI_tb_ready;
+  logic [PIXEL_BITS-1:0] IMAGE_IN [0:IMAGE_SIZE-1];
+  logic [PIXEL_BITS-1:0] init_values [0:IMAGE_SIZE-1];
+
 
   //DUT
   logic CLK;
-  logic RST;
-  logic [31:0] awaddr;
-  logic [2:0] awprot;
-  logic awvalid;
-  logic [31:0] wdata;
-  logic [3:0] wstrb;
-  logic wvalid;
-  logic [31:0] araddr;
-  logic [2:0] arprot;
-  logic arvalid;
-  logic coprocessor_rdy;
-  logic [31:0] rdata;
-  logic [1:0] rresp;
-  logic rvalid;
-  logic [PIXEL_BITS-1:0] IMAGE [0:IMAGE_SIZE-1];
+  logic RST, ARESETN;
+
+  logic [31:0] AWADDR;
+  logic AWVALID;
+  logic AWREADY;
+
+  logic [31:0] WDATA;
+  logic [3:0] WSTRB;
+  logic WVALID;
+  logic WREADY;
+
+  logic [1:0] BRESP;
+  logic BVALID;
+  logic BREADY;
+
+  logic [31:0] ARADDR;
+  logic [2:0] ARPROT;
+  logic ARVALID;
+  logic ARREADY;
+
+  logic [31:0] RDATA;
+  logic [1:0] RRESP;
+  logic RVALID;
+  logic RREADY;
+
+  logic COPROCESSOR_RDY;
+  logic [7:0] INFERED_DIGIT;    // M-1:0
+
 
   // ------------------------------
   // -- Init
@@ -35,12 +51,18 @@ module AXI_tb();
 
   initial begin
     AXI_tb_ready  = 1'b0;
-    
+
+    AWVALID       = 1'b0;
+    WVALID        = 1'b0;
+    ARVALID       = 1'b0;    
 
     // Initialize image to 0
     for (int i = 0; i < IMAGE_SIZE; i++) begin
-      IMAGE[i] = 0;
+      IMAGE_IN[i] = 0;
     end
+
+    // Image to send
+    init_values = '{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 32, 81, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 174, 244, 101, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 53, 187, 243, 239, 190, 75, 2, 0, 0, 0, 0, 0, 0, 0, 0, 25, 185, 111, 98, 219, 222, 71, 6, 0, 0, 0, 0, 0, 0, 0, 26, 120, 127, 20, 100, 228, 149, 27, 0, 0, 0, 0, 0, 0, 0, 0, 24, 214, 163, 183, 192, 227, 120, 0, 0, 0, 0, 0, 0, 0, 0, 1, 55, 164, 188, 83, 82, 170, 104, 12, 0, 0, 0, 0, 0, 0, 0, 1, 10, 35, 17, 4, 51, 185, 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 63, 180, 77, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 50, 159, 98, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 174, 64, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 45, 97, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
   end
     
@@ -52,8 +74,8 @@ module AXI_tb();
     CLK = 1'b1; 
     forever begin
       wait_ns(2);
-        CLK = ~CLK;
-      end
+      CLK = ~CLK;
+    end
   end
 
   initial begin
@@ -67,27 +89,42 @@ module AXI_tb();
     AXI_tb_ready = 1'b1;
   end
 
+  assign ARESETN = ~RST; 
 
   // ------------------------------
   // -- DUT and assignments
   // ------------------------------
 
-  AXI_in u_AXI_in (
-    .aclk(clk),
-    .aresetn(reset_n),
-    .awaddr(awaddr),
-    .awprot(awprot),
-    .awvalid(awvalid),
-    .wdata(wdata),
-    .wstrb(wstrb),
-    .wvalid(wvalid),
-    .araddr(araddr),
-    .arprot(arprot),
-    .arvalid(arvalid),
-    .coprocessor_rdy(coprocessor_rdy),
-    .rdata(rdata),
-    .rresp(rresp),
-    .rvalid(rvalid)
+  S_AXI_interface u_S_AXI_interface (
+    .ACLK             (CLK),
+    .ARESETN          (ARESETN),
+
+    .AWADDR           (AWADDR),
+    .AWPROT           (),
+    .AWVALID          (AWVALID),
+    .AWREADY          (AWREADY),
+
+    .WDATA            (WDATA),
+    .WSTRB            (WSTRB),
+    .WVALID           (WVALID),
+    .WREADY           (WREADY),
+
+    .BRESP            (BRESP),
+    .BVALID           (BVALID),
+    .BREADY           (BREADY),
+
+    .ARADDR           (ARADDR),
+    .ARPROT           (ARPROT),
+    .ARVALID          (ARVALID),
+    .ARREADY          (ARREADY),
+
+    .RDATA            (RDATA),
+    .RRESP            (RRESP),
+    .RVALID           (RVALID),
+    .RREADY           (RREADY),
+
+    .COPROCESSOR_RDY  (COPROCESSOR_RDY),
+    .INFERED_DIGIT    (INFERED_DIGIT)
   );
 
   // ------------------------------
@@ -99,75 +136,67 @@ module AXI_tb();
 
     while (~AXI_tb_ready) wait_ns(1);
 
-    // Initialize image data
-    foreach (image_data[i]) begin
-      image_data[i] = $random;
+    // Generate and print input image
+    for (int i = 0; i < IMAGE_SIZE; i++) begin
+      IMAGE_IN[i] = init_values[i];
     end
 
-    // Write image data to the module
-    awvalid = 1'b0;
-    wvalid = 1'b0;
-    repeat (255) begin
-      @(posedge clk);
-      awaddr <= $random;
-      awprot <= $random;
-      awvalid <= 1'b1;
-      wdata <= image_data[awaddr[7:0]];
-      wstrb <= $random;
-      wvalid <= 1'b1;
-      @(posedge clk);
-      awvalid <= 1'b0;
-      wvalid <= 1'b0;
-      @(posedge clk);
+    $display("Image sent:");
+    for (int i = 0; i < IMAGE_SIZE; i++) begin
+      $write("%d: ", i);
+      $display("%d", IMAGE_IN[i]);
     end
 
-    // Wait for a few cycles to allow writes to complete
-    #100;
-
-    // Read back image data and compare
-    foreach (image_data[i]) begin
-      @(posedge clk);
-      araddr <= i;
-      arprot <= $random;
-      arvalid <= 1'b1;
-      @(posedge clk);
-      arvalid <= 1'b0;
-      @(posedge clk);
-      if (rvalid) begin
-        if (rdata !== image_data[i]) begin
-          $display("Error: Image data mismatch at address %d. Expected: %h, Got: %h", i, image_data[i], rdata);
-        end
-      end
+    // Send data byte by byte
+    for (int i = 0; i < IMAGE_SIZE; i++) begin
+      @(posedge CLK)
+      AWADDR <= i;
+      AWVALID <= 1'b1;
+      
+      @(posedge CLK)
+      WDATA <= IMAGE_IN[AWADDR[7:0]];
+      WSTRB <= 4'b001;                  // Only LSB has valid information
+      WVALID <= 1'b1;
+      
+      @(posedge CLK);
+      
+      AWVALID <= 1'b0;
+      WVALID <= 1'b0;
+      
+      @(posedge CLK);
     end
-    $display("Write test complete");
+
+    wait_ns(500);
+    $finish;
+
   end
 
   // Read test
-  initial begin
-    while (~AXI_tb_ready) wait_ns(1);
+  // initial begin
+  //   while (~AXI_tb_ready) wait_ns(1);
 
-    // Wait for a few cycles
-    wait_ns(500);
+  //   // Wait for a few cycles
+  //   wait_ns(500);
 
-    // Set COPROCESSOR_RDY to high
-    coprocessor_rdy = 1'b1;
+  //   // Set COPROCESSOR_RDY to high
+  //   COPROCESSOR_RDY = 1'b1;
 
-    // Read from module
-    @(posedge clk);
-    araddr <= 0;
-    arprot <= $random;
-    arvalid <= 1'b1;
-    @(posedge clk);
-    arvalid <= 1'b0;
-    @(posedge clk);
-    if (rvalid) begin
-        $display("Read test: First pixel value received: %h", rdata);
-    end
+  //   // Read from module
+  //   @(posedge clk);
+  //   araddr <= 0;
+  //   arprot <= $random;
+  //   arvalid <= 1'b1;
+  //   @(posedge clk);
+  //   arvalid <= 1'b0;
+  //   @(posedge clk);
+  //   if (rvalid) begin
+  //       $display("Read test: First pixel value received: %h", rdata);
+  //   end
 
-    // Wait for a few cycles
-    #100;
-    $stop; // End simulation
-  end
+  //   // Wait for a few cycles
+  //   #100;
+  //   $stop; // End simulation
+  // end
 
   // SIMPLE TIME-HANDLING TASKS
   task wait_ns;

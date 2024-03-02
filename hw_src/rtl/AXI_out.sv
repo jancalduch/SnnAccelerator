@@ -1,7 +1,11 @@
-/* Output Interface for AXI4-Lite */
+/* Output Interface for AXI4-Lite 
+    Address range:   1*32 = 32
+    Address offset:  0x0002000
+    Address:         0x0002000 - 0x000201F
+*/
 
 
-module AXI_in (
+module AXI_out (
   input logic                   ACLK,         // Clock input
   input logic                   ARESETN,      // Reset input (active low)
 
@@ -15,44 +19,25 @@ module AXI_in (
   output logic [31:0]           RDATA,        // Read data
   output logic [1:0]            RRESP,        // Read response
   output logic                  RVALID,       // Read data valid
-  input logic                   RREADY        // Read data ready
+  input logic                   RREADY,       // Read data ready
+
+  // From SNN
+  input logic                   COPROCESSOR_RDY,
+  input logic [7:0]             INFERED_DIGIT
 );
-
-  // Address range:   1*32 = 32
-  // Address offset:  0x0002000
-  // Address:         0x0002000 - 0x000201F
-
-
-
-  // Image storage register
-  logic [7:0] image_data[0:254]; // Assuming 255 pixel values, 8 bits each
-
-  // COPROCESSOR_RDY signal detection
-  logic [7:0] coprocessor_data; // Data to be sent when COPROCESSOR_RDY is high
-  always_ff @(posedge ACLK or negedge ARESETN) begin
-    if (!ARESETN) begin
-      coprocessor_data <= '0;
-    end else if (COPROCESSOR_RDY) begin
-      // Data to be sent when COPROCESSOR_RDY is high
-      coprocessor_data <= image_data[0]; // For example, sending the first pixel value
-    end
-  end
 
   // Read address decoding
   always_ff @(posedge ACLK or negedge ARESETN) begin
     if (!ARESETN) begin
-      // Reset state
-      // Reset image_data array
-      image_data <= '0;
+      RVALID      <= 1'b0;
     end else if (ARVALID && ARREADY) begin
       // Read request acknowledged
-      // Read data from image_data array based on address
-      RDATA <= image_data[araddr[7:0]];
+      // RDATA <= image_data[ARADDR[7:0]];
       RRESP <= 'b00; // OKAY response
       RVALID <= 1'b1;
     end else if (COPROCESSOR_RDY) begin
       // Send data when COPROCESSOR_RDY is high
-      RDATA <= coprocessor_data;
+      RDATA <= {29'b0, 3'b111};
       RRESP <= 'b00; // OKAY response
       RVALID <= 1'b1;
     end else begin
