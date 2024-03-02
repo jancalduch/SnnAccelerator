@@ -7,48 +7,56 @@
   */
 
 
-module S_AXI_interface (
-    input logic                   ACLK,         // Clock input
-    input logic                   ARESETN,      // Reset input (active low)
+module S_AXI_interface #(
+  // Width of S_AXI data bus
+  parameter integer AXI_DATA_WIDTH	= 32,
+  // Width of S_AXI address bus
+  parameter integer AXI_ADDR_WIDTH	= 7
+)(
+  input logic                   ACLK,         // Clock input
+  input logic                   ARESETN,      // Reset input (active low)
+
+  // WRITE ADDRESS (AW) channel
+  input logic [31:0]            AWADDR,       // Write address
+  input logic [2:0]             AWPROT,       // Write protection signals
+  input logic                   AWVALID,      // Write address valid
+  output logic                  AWREADY,      // Write address ready
+
+  // WRITE DATA (W) channel
+  input logic [31:0]            WDATA,        // Write data
+  input logic [3:0]             WSTRB,        // Write byte strobes
+  input logic                   WVALID,       // Write data valid
+  output logic                  WREADY,       // Write data ready
+
+  // WRITE RESPONSE (B) channel
+  output logic [1:0]            BRESP,        // Write response
+  output logic                  BVALID,       // Write response valid
+  input logic                   BREADY,       // Write response ready
+
+  // READ ADDRESS (AR) channel
+  input logic [31:0]            ARADDR,       // Read address
+  input logic [2:0]             ARPROT,       // Read protection signals
+  input logic                   ARVALID,      // Read address valid
+  output logic                  ARREADY,      // Read address ready
+
+  // READ DATA (R) channel
+  output logic [31:0]           RDATA,        // Read data
+  output logic [1:0]            RRESP,        // Read response
+  output logic                  RVALID,       // Read data valid
+  input logic                   RREADY,       // Read data ready
+
+  // From SNN
+  input logic                   COPROCESSOR_RDY,
+  input logic [7:0]             INFERED_DIGIT
+
+  // To SNN
+
+);
   
-    // WRITE ADDRESS (AW) channel
-    input logic [31:0]            AWADDR,       // Write address
-    input logic [2:0]             AWPROT,       // Write protection signals
-    input logic                   AWVALID,      // Write address valid
-    output logic                  AWREADY,      // Write address ready
-    
-    // WRITE DATA (W) channel
-    input logic [31:0]            WDATA,        // Write data
-    input logic [3:0]             WSTRB,        // Write byte strobes
-    input logic                   WVALID,       // Write data valid
-    output logic                  WREADY,       // Write data ready
-    
-    // WRITE RESPONSE (B) channel
-    output logic [1:0]            BRESP,        // Write response
-    output logic                  BVALID,       // Write response valid
-    input logic                   BREADY,       // Write response ready
-
-    // READ ADDRESS (AR) channel
-    input logic [31:0]            ARADDR,       // Read address
-    input logic [2:0]             ARPROT,       // Read protection signals
-    input logic                   ARVALID,      // Read address valid
-    output logic                  ARREADY,      // Read address ready
-    
-    // READ DATA (R) channel
-    output logic [31:0]           RDATA,        // Read data
-    output logic [1:0]            RRESP,        // Read response
-    output logic                  RVALID,       // Read data valid
-    input logic                   RREADY,       // Read data ready
-
-    // From SNN
-    input logic                   COPROCESSOR_RDY,
-    input logic [7:0]             INFERED_DIGIT
-
-    // To SNN
-
-  );
-  
-  AXI_in u_AXI_in (
+  AXI_in #(
+    AXI_DATA_WIDTH,
+    AXI_ADDR_WIDTH
+  ) u_AXI_in (
     .ACLK             (ACLK),
     .ARESETN          (ARESETN),
 
@@ -67,7 +75,10 @@ module S_AXI_interface (
     .BREADY           (BREADY)
   );
 
-  AXI_out u_AXI_out (
+  AXI_out #(
+    AXI_DATA_WIDTH,
+    AXI_ADDR_WIDTH
+  ) u_AXI_out (
     .ACLK             (ACLK),
     .ARESETN          (ARESETN),
 

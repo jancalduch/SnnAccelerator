@@ -5,7 +5,12 @@
 */
 
 
-module AXI_out (
+module AXI_out #(
+  // Width of S_AXI data bus
+  parameter integer AXI_DATA_WIDTH	= 32,
+  // Width of S_AXI address bus
+  parameter integer AXI_ADDR_WIDTH	= 7
+)(
   input logic                   ACLK,         // Clock input
   input logic                   ARESETN,      // Reset input (active low)
 
@@ -26,27 +31,47 @@ module AXI_out (
   input logic [7:0]             INFERED_DIGIT
 );
 
-  // Read address decoding
-  always_ff @(posedge ACLK or negedge ARESETN) begin
-    if (!ARESETN) begin
-      RVALID      <= 1'b0;
-    end else if (ARVALID && ARREADY) begin
-      // Read request acknowledged
-      // RDATA <= image_data[ARADDR[7:0]];
-      RRESP <= 'b00; // OKAY response
-      RVALID <= 1'b1;
-    end else if (COPROCESSOR_RDY) begin
-      // Send data when COPROCESSOR_RDY is high
-      RDATA <= {29'b0, 3'b111};
-      RRESP <= 'b00; // OKAY response
-      RVALID <= 1'b1;
-    end else begin
-      // Wait for read request or COPROCESSOR_RDY
-      RVALID <= 1'b0;
-    end
-  end
+  //----------------------------------------------------------------------------
+  //	LOGIC
+  //----------------------------------------------------------------------------
+  localparam ADDRLSB = $clog2(AXI_DATA_WIDTH)-3;
+  
+  logic [31:0] read_data;
+  logic read_valid;
+  logic read_ready;
+  logic address_read_ready;
 
-  // AXI ready signal
-  assign ARREADY = 1'b1; // Always ready to accept read requests
+  //----------------------------------------------------------------------------
+  //	DESGIN
+  //----------------------------------------------------------------------------
+  always_ff @(posedge ACLK)
+    if (!RVALID || RREADY)
+      read_data <= {COPROCESSOR_RDY, 23'b0, INFERED_DIGIT};
+
+  always_ff @(posedge ACLK)
+    if (!ARESETN)
+      read_valid <= 1'b0;
+    else if (read_ready)
+      read_valid <= 1'b1;
+    else if (RREADY)
+      read_valid <= 1'b0;
+	
+  //----------------------------------------------------------------------------
+  //	COMBINATORIAL LOGIC
+  //----------------------------------------------------------------------------
+  assign read_ready = (ARVALID && ARREADY);
+
+	assign read_address = ARADDR[AXI_ADDR_WIDTH-1:ADDRLSB];
+
+  always_comb
+    address_read_ready = !RVALID;
+
+  //----------------------------------------------------------------------------
+  //	OUTPUT
+  //----------------------------------------------------------------------------
+  assign ARREADY = address_read_ready;
+  assign RDATA = read_data;
+  assign RRESP = 2'b00;       // Assume no error
+  assign RVALID = read_valid;
 
 endmodule

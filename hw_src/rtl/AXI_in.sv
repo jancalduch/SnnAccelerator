@@ -4,8 +4,12 @@
     Address:         0x0000000 - 0x0001FFF
 */
 
-
-module AXI_in (
+module AXI_in #(
+  // Width of S_AXI data bus
+  parameter integer AXI_DATA_WIDTH	= 32,
+  // Width of S_AXI address bus
+  parameter integer AXI_ADDR_WIDTH	= 7
+)(
   input logic                   ACLK,         // Clock input
   input logic                   ARESETN,      // Reset input (active low)
 
@@ -28,25 +32,88 @@ module AXI_in (
 
 );
 
-  // Image storage register
-  logic [7:0] image_data[0:255]; // Assuming 256 pixel values, 8 bits each
-  logic NEW_IMAGE;
+  //----------------------------------------------------------------------------
+  //	LOGIC
+  //----------------------------------------------------------------------------
+  
+  localparam ADDRLSB = $clog2(AXI_DATA_WIDTH)-3;
 
-  // Write address decoding
-  always_ff @(posedge ACLK or negedge ARESETN) begin
+  logic [7:0] image_data[0:255];  // 256 8-bit pixel values
+  logic NEW_IMAGE;                // Indicate that an image is fully received
+
+  logic [AXI_ADDR_WIDTH-ADDRLSB-1:0] write_address;
+	logic [AXI_DATA_WIDTH-1:0] data;
+	logic [AXI_DATA_WIDTH/8-1:0] strb;
+  logic [7:0] write_data[0:255];
+
+  logic write_ready;              // Indicate we want to write to a register
+  logic address_write_ready;
+
+  logic write_response_valid;
+
+  //----------------------------------------------------------------------------
+  //	SEQUENTIAL LOGIC
+  //----------------------------------------------------------------------------
+  // Store pixel value into image array
+  always_ff @(posedge ACLK) begin
     if (!ARESETN) begin
-      BVALID              <= 1'b0;
-    end else if (AWVALID && AWREADY && WREADY && WVALID) begin
-      image_data[AWADDR[7:0]]  <= WDATA[7:0];
-      BRESP               <= 'b00; // OKAY response
-      BVALID              <= 1'b1;
-    end else begin
-      BVALID              <= 1'b0;
+      foreach (image_data[i])
+        image_data[i] = 0;
+    end else if (write_ready) begin
+      // apply_wstrb(old_data, new_data, write_strobes)
+      foreach (write_data[i])
+        write_data[i] = apply_wstrb(image_data[i], data, strb);
+      image_data[write_address] = write_data[write_address];
     end
   end
+  
+  // BVALID set following any successful write to the SNN coprocessor
+  always_ff @(posedge ACLK)
+    if (!ARESETN)
+      write_response_valid <= 0;
+    else if (write_ready)
+      write_response_valid <= 1;
+    else if (BREADY)
+      write_response_valid <= 0;
 
-  // AXI ready signal
-  assign AWREADY = 1'b1; // Always ready to accept read requests
-  assign WREADY  = 1'b1;
+  always_ff @(posedge ACLK)
+    if (!ARESETN)
+      address_write_ready <= 1'b0;
+    else  
+      address_write_ready <= !address_write_ready && (AWVALID && WVALID) && (!BVALID || BREADY);
+
+  //----------------------------------------------------------------------------
+  //	COMBINATORIAL LOGIC
+  //----------------------------------------------------------------------------
+  assign write_ready = address_write_ready;
+
+  assign 	write_address = AWADDR[7:0]; //[AXI_ADDR_WIDTH-1:ADDRLSB];
+	assign	data  = WDATA;
+	assign	strb  = WSTRB;
+
+  //----------------------------------------------------------------------------
+  //	OUTPUT
+  //----------------------------------------------------------------------------
+  assign AWREADY  = address_write_ready;
+  assign WREADY   = address_write_ready;
+  assign BRESP    = 2'b00;                      // Assume no error
+  assign BVALID   = write_response_valid;
+
+  //----------------------------------------------------------------------------
+  //	FUNCTIONS
+  //----------------------------------------------------------------------------
+  function [AXI_DATA_WIDTH-1:0]	apply_wstrb;
+		input	[AXI_DATA_WIDTH-1:0]		prior_data;
+		input	[AXI_DATA_WIDTH-1:0]		new_data;
+		input	[AXI_DATA_WIDTH/8-1:0]	wstrb;
+
+		integer	k;
+		for(k = 0; k < AXI_DATA_WIDTH/8; k = k + 1)
+		begin
+			apply_wstrb[k*8 +: 8]
+				= wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
+		end
+	endfunction
+
 
 endmodule

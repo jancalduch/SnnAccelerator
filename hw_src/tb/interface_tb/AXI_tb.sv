@@ -1,17 +1,20 @@
 module AXI_tb();
 
-  localparam IMAGE_SIZE      = 256;
-  localparam IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE);
-  localparam PIXEL_MAX_VALUE = 255;
-	localparam PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE);
+  localparam IMAGE_SIZE       = 256;
+  localparam IMAGE_SIZE_BITS  = $clog2(IMAGE_SIZE);
+  localparam PIXEL_MAX_VALUE  = 255;
+	localparam PIXEL_BITS       = $clog2(PIXEL_MAX_VALUE);
+
+  localparam AXI_DATA_WIDTH   = 32;
+  localparam AXI_ADDR_WIDTH   = 32;
 
   // ------------------------------
   // -- Logic
   // ------------------------------
   // TB
   logic AXI_tb_ready;
-  logic [PIXEL_BITS-1:0] IMAGE_IN [0:IMAGE_SIZE-1];
-  logic [PIXEL_BITS-1:0] init_values [0:IMAGE_SIZE-1];
+  logic [31:0] IMAGE_IN [0:IMAGE_SIZE-1];
+  logic [31:0] init_values [0:IMAGE_SIZE-1];
 
 
   //DUT
@@ -62,7 +65,21 @@ module AXI_tb();
     end
 
     // Image to send
-    init_values = '{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 32, 81, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 174, 244, 101, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 53, 187, 243, 239, 190, 75, 2, 0, 0, 0, 0, 0, 0, 0, 0, 25, 185, 111, 98, 219, 222, 71, 6, 0, 0, 0, 0, 0, 0, 0, 26, 120, 127, 20, 100, 228, 149, 27, 0, 0, 0, 0, 0, 0, 0, 0, 24, 214, 163, 183, 192, 227, 120, 0, 0, 0, 0, 0, 0, 0, 0, 1, 55, 164, 188, 83, 82, 170, 104, 12, 0, 0, 0, 0, 0, 0, 0, 1, 10, 35, 17, 4, 51, 185, 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 63, 180, 77, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 50, 159, 98, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 174, 64, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 45, 97, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    init_values = '{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 32, 81, 
+                    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 174, 244, 101, 13, 
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 53, 187, 243, 239, 190, 75, 2, 
+                    0, 0, 0, 0, 0, 0, 0, 0, 25, 185, 111, 98, 219, 222, 71, 6, 
+                    0, 0, 0, 0, 0, 0, 0, 26, 120, 127, 20, 100, 228, 149, 27, 0, 
+                    0, 0, 0, 0, 0, 0, 0, 24, 214, 163, 183, 192, 227, 120, 0, 0, 
+                    0, 0, 0, 0, 0, 0, 1, 55, 164, 188, 83, 82, 170, 104, 12, 0, 
+                    0, 0, 0, 0, 0, 0, 1, 10, 35, 17, 4, 51, 185, 93, 0, 0, 0, 0, 
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 63, 180, 77, 4, 0, 0, 0, 0, 0, 0, 
+                    0, 0, 0, 0, 0, 3, 50, 159, 98, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                    0, 0, 0, 24, 174, 64, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                    45, 97, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                    0, 0, 0, 0, 0};
 
   end
     
@@ -95,7 +112,10 @@ module AXI_tb();
   // -- DUT and assignments
   // ------------------------------
 
-  S_AXI_interface u_S_AXI_interface (
+  S_AXI_interface #(
+    AXI_DATA_WIDTH,
+    AXI_ADDR_WIDTH
+  ) u_S_AXI_interface (
     .ACLK             (CLK),
     .ARESETN          (ARESETN),
 
@@ -152,10 +172,10 @@ module AXI_tb();
       @(posedge CLK)
       AWADDR <= i;
       AWVALID <= 1'b1;
-      
+      BREADY <=1'b1;
       @(posedge CLK)
       WDATA <= IMAGE_IN[AWADDR[7:0]];
-      WSTRB <= 4'b001;                  // Only LSB has valid information
+      WSTRB <= 4'b0001;                  // Only LSB has valid information
       WVALID <= 1'b1;
       
       @(posedge CLK);
@@ -164,9 +184,16 @@ module AXI_tb();
       WVALID <= 1'b0;
       
       @(posedge CLK);
+      @(posedge CLK);
+      @(posedge CLK);
     end
 
     wait_ns(500);
+
+    for (int i = 0; i < IMAGE_SIZE; i++) begin
+      assert (IMAGE_IN[i] == u_S_AXI_interface.u_AXI_in.image_data[i]) else $fatal("It's gone wrong");
+    end
+
     $finish;
 
   end
