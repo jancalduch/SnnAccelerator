@@ -202,7 +202,7 @@ module AXI_tb();
 
     // Check that image is correct
     for (int i = 0; i < IMAGE_SIZE; i++) begin
-      assert (IMAGE_IN[i] == u_S_AXI_interface.image_data[i]) else $fatal("It's gone wrong");
+      assert (IMAGE_IN[i] == u_S_AXI_interface.image_data[i]) else $error("It's gone wrong");
     end
 
     wait_ns(100);
@@ -246,12 +246,14 @@ module AXI_tb();
     begin
       wait_ns(3);
       AWADDR  <= addr;	//Put write address on bus
-      WDATA   <= data;	//put write data on bus
       AWVALID <= 1'b1;	//indicate address is valid
+
+      WDATA   <= data;	//put write data on bus
       WVALID  <= 1'b1;	//indicate data is valid
-      BREADY  <= 1'b1;	//indicate ready for a response
       WSTRB   <= 4'h1;  //writing 1st byte
   
+      BREADY  <= 1'b1;	//indicate ready for a response
+      
       //wait for one slave ready signal or the other and a positive edge
       wait(WREADY || AWREADY);
       @(posedge CLK);
@@ -276,7 +278,7 @@ module AXI_tb();
 
       wait(BVALID);   //wait for valid response
       @(posedge CLK); //both handshake signals and rising edge
-      BREADY = 0;     //deassert ready for response
+      BREADY <= 0;     //deassert ready for response
   
     end
   endtask;
@@ -289,6 +291,7 @@ module AXI_tb();
       wait_ns(3);
       ARADDR  <= addr;	//Put write address on bus
       ARVALID <= 1'b1;	//indicate address is valid
+
       RREADY  <= 1'b1;	//indicate ready to read
   
       //wait for one slave ready signal or the other and a positive edge
