@@ -144,10 +144,9 @@ module S_AXI_interface2 #(
       if (w_addr_latch < 256)
         image_data[w_addr_latch]   <= apply_wstrb(image_data[w_addr_latch], w_data_latch, WSTRB);
       else
-        image_fully_received        <= apply_wstrb(image_fully_received, w_data_latch, WSTRB);
+        image_fully_received       <= apply_wstrb(image_fully_received, w_data_latch, WSTRB);
     end
 	end
-
 
   //----------------------------------------------------------------------------
   //	READ LOGIC

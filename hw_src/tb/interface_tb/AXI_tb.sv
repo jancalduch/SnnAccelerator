@@ -63,12 +63,13 @@ module AXI_tb();
 
     AWVALID       = 1'b0;
     WVALID        = 1'b0;
-    BREADY        = 1'b1;
+    BREADY        = 1'b0;
 
     ARVALID       = 1'b0;
     RREADY        = 1'b0;
     
     COPROCESSOR_RDY = 1'b0;
+    INFERED_DIGIT = 3;
     infered_digit_valid = 1'b0;
 
     // Initialize image to 0
@@ -124,7 +125,7 @@ module AXI_tb();
   // -- DUT and assignments
   // ------------------------------
 
-  S_AXI_interface2 #(
+  S_AXI_interface #(
     AXI_DATA_WIDTH,
     AXI_ADDR_WIDTH,
     IMAGE_SIZE,     
@@ -191,45 +192,17 @@ module AXI_tb();
     end
 
     // Send data byte by byte
-    for (int i = 0; i < IMAGE_SIZE; i++) begin
-      AWADDR <= i;
-      AWVALID <= 1'b1;
-      @(posedge CLK)
-      WDATA <= IMAGE_IN[i];
-      WSTRB <= 4'b0001;                  // Only LSB has valid information
-      WVALID <= 1'b1;
-      @(posedge CLK);
-      @(posedge CLK);
-      AWVALID <= 1'b0;
-      WVALID <= 1'b0;
-      @(posedge CLK);
+    for (int address = 0; address < IMAGE_SIZE; address++) begin
+      wait_ns(8);
+      axi_write(address, IMAGE_IN[address]);
     end
+    // Notify that image is fully sent
+    axi_write(256, 1);
+    axi_write(256, 0);
 
-    // Send that new image is fully sent
-    AWADDR <= 256;
-    AWVALID <= 1'b1;
-    @(posedge CLK)
-    WDATA <= 1;
-    WSTRB <= 4'b0001;                  // Only LSB has valid information
-    WVALID <= 1'b1;
-    @(posedge CLK);
-    @(posedge CLK);
-    AWVALID <= 1'b0;
-    WVALID <= 1'b0;
-    @(posedge CLK);
-
-    AWVALID <= 1'b1;
-    @(posedge CLK)
-    WDATA <= 0;
-    WVALID <= 1'b1;
-    @(posedge CLK);
-    @(posedge CLK);
-    AWVALID <= 1'b0;
-    WVALID <= 1'b0;
-    @(posedge CLK);
-
+    // Check that image is correct
     for (int i = 0; i < IMAGE_SIZE; i++) begin
-      assert (IMAGE_IN[i] == u_S_AXI_interface.image_data[i]) else $error("It's gone wrong");
+      assert (IMAGE_IN[i] == u_S_AXI_interface.image_data[i]) else $fatal("It's gone wrong");
     end
 
     wait_ns(100);
@@ -237,21 +210,16 @@ module AXI_tb();
     //--------------------------------------------------------------------------
     //	READ RESULT
     //--------------------------------------------------------------------------
+    // After some time, send a result to sent through AXI.
     fork
-      SNN_send_result(.digit(5), .inf_digit(INFERED_DIGIT), .cop_rdy(COPROCESSOR_RDY));
+      SNN_send_result(5, 3000);
     join_none
     
+    // Read until a result is valid
     while(!infered_digit_valid) begin
-      // Read from module
-      @(posedge CLK);
-      ARADDR <= 0;
-      ARVALID <= 1'b1;
-      RREADY <= 1'b1;
-      if (RVALID) begin
-        result <= RDATA[7:0];
-        infered_digit_valid <= RDATA[31];
-      end
+      axi_read(0, result, infered_digit_valid);
     end
+
     COPROCESSOR_RDY <= 1'b0;
     ARVALID <= 1'b0;
     RREADY <= 1'b0;
@@ -272,15 +240,97 @@ module AXI_tb();
     #tics_ns;
   endtask
 
-  task automatic SNN_send_result (
-    ref logic [7:0] inf_digit,
-    ref logic cop_rdy,
-    input logic [7:0] digit  
-  );
+  task axi_write;
+    input [31:0] addr;
+    input [31:0] data;
+    begin
+      wait_ns(3);
+      AWADDR  <= addr;	//Put write address on bus
+      WDATA   <= data;	//put write data on bus
+      AWVALID <= 1'b1;	//indicate address is valid
+      WVALID  <= 1'b1;	//indicate data is valid
+      BREADY  <= 1'b1;	//indicate ready for a response
+      WSTRB   <= 4'h1;  //writing 1st byte
+  
+      //wait for one slave ready signal or the other and a positive edge
+      wait(WREADY || AWREADY);
+      @(posedge CLK);
 
-    wait_ns(3000);
-    inf_digit = digit;
-    cop_rdy = 1'b1;
+      if(WREADY && AWREADY) begin   //received both ready signals
+        AWVALID <= 0;
+        WVALID  <= 0;
+      end else begin                //wait for the other signal and a positive edge
+        if(WREADY) begin            //case data handshake completed
+          WVALID <= 0;
+          wait(AWREADY);            //wait for address address ready
+        end else if(AWREADY) begin  //case address handshake completed
+          AWVALID <= 0;
+          wait(WREADY);             //wait for data ready
+        end 
+        @(posedge CLK);             // complete the second handshake
+        AWVALID <= 0;               //make sure both valid signals are deasserted
+        WVALID  <= 0;
+      end
+              
+      //both handshakes have occured, deassert strobe
+      WSTRB <= 0;
+  
+      //wait for valid response
+      wait(BVALID);
+      
+      //both handshake signals and rising edge
+      @(posedge CLK);
+  
+      //deassert ready for response
+      BREADY <= 0;
+  
+    end
+  endtask;
+
+  task axi_read;
+    input [31:0] addr;
+    output [7:0] digit;
+    output digit_valid;
+    begin
+      wait_ns(3);
+      ARADDR  <= addr;	//Put write address on bus
+      ARVALID <= 1'b1;	//indicate address is valid
+      RREADY  <= 1'b1;	//indicate ready to read
+  
+      //wait for one slave ready signal or the other and a positive edge
+      wait(RVALID || ARREADY);
+      @(posedge CLK);
+
+      digit         = RDATA[7:0];
+      digit_valid   = RDATA[31];
+
+      if(RVALID && ARREADY) begin   //received both ready signals
+        ARVALID       <= 0;
+        RREADY        <= 0;
+      end else begin                //wait for the other signal and a positive edge
+        if(RVALID) begin            //case data handshake completed
+          RREADY        <= 0;
+          wait(ARREADY);            //wait for address address ready
+        end else if(ARREADY) begin  //case address handshake completed
+          ARVALID       <= 0;
+          wait(RVALID);             //wait for data ready
+        end 
+        @(posedge CLK);             // complete the second handshake
+        ARVALID <= 0;               //make sure both valid signals are deasserted
+        RREADY  <= 0;
+      end
+  
+    end
+  endtask;
+
+  task automatic SNN_send_result;
+    input [7:0] digit;
+    input integer signal_time;
+    begin
+      wait_ns(signal_time);
+      INFERED_DIGIT = digit;
+      COPROCESSOR_RDY = 1'b1;
+    end
   endtask
 
 endmodule
