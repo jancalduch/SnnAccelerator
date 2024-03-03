@@ -63,6 +63,8 @@ module AXI_tb();
 
     AWVALID       = 1'b0;
     WVALID        = 1'b0;
+    BREADY        = 1'b1;
+
     ARVALID       = 1'b0;
     RREADY        = 1'b0;
     
@@ -122,7 +124,7 @@ module AXI_tb();
   // -- DUT and assignments
   // ------------------------------
 
-  S_AXI_interface #(
+  S_AXI_interface2 #(
     AXI_DATA_WIDTH,
     AXI_ADDR_WIDTH,
     IMAGE_SIZE,     
@@ -192,11 +194,11 @@ module AXI_tb();
     for (int i = 0; i < IMAGE_SIZE; i++) begin
       AWADDR <= i;
       AWVALID <= 1'b1;
-      BREADY <=1'b1;
       @(posedge CLK)
       WDATA <= IMAGE_IN[i];
       WSTRB <= 4'b0001;                  // Only LSB has valid information
       WVALID <= 1'b1;
+      @(posedge CLK);
       @(posedge CLK);
       AWVALID <= 1'b0;
       WVALID <= 1'b0;
@@ -206,30 +208,28 @@ module AXI_tb();
     // Send that new image is fully sent
     AWADDR <= 256;
     AWVALID <= 1'b1;
-    BREADY <=1'b1;
     @(posedge CLK)
     WDATA <= 1;
     WSTRB <= 4'b0001;                  // Only LSB has valid information
     WVALID <= 1'b1;
     @(posedge CLK);
+    @(posedge CLK);
     AWVALID <= 1'b0;
     WVALID <= 1'b0;
     @(posedge CLK);
 
-    AWADDR <= 256;
     AWVALID <= 1'b1;
-    BREADY <=1'b1;
     @(posedge CLK)
     WDATA <= 0;
-    WSTRB <= 4'b0001;                  // Only LSB has valid information
     WVALID <= 1'b1;
+    @(posedge CLK);
     @(posedge CLK);
     AWVALID <= 1'b0;
     WVALID <= 1'b0;
     @(posedge CLK);
 
     for (int i = 0; i < IMAGE_SIZE; i++) begin
-      assert (IMAGE_IN[i] == u_S_AXI_interface.image_data[i]) else $fatal("It's gone wrong");
+      assert (IMAGE_IN[i] == u_S_AXI_interface.image_data[i]) else $error("It's gone wrong");
     end
 
     wait_ns(100);

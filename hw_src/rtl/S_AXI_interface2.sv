@@ -6,8 +6,7 @@
     0:      infered_data
 */
 
-
-module S_AXI_interface #(
+module S_AXI_interface2 #(
   parameter integer AXI_DATA_WIDTH	= 32,     // Width of S_AXI data bus
   parameter integer AXI_ADDR_WIDTH	= 7,      // Width of S_AXI address bus
   
@@ -66,97 +65,149 @@ module S_AXI_interface #(
   logic [31:0] image_fully_received;
   logic [31:0] infered_data;
 
-  // Write
-  logic [AXI_ADDR_WIDTH-1:0] write_address;
-  logic [AXI_DATA_WIDTH-1:0] write_data;
-  logic [AXI_DATA_WIDTH/8-1:0] strb;
+  // control signals
+  wire write_en;
+	reg w_addr_done;
+	reg w_data_done;
 
-  logic write_ready;              // Indicate we want to write to a register
-  logic address_write_ready;
-  logic write_response_valid;
+  reg r_addr_done;
+	reg r_data_done;
 
-  // Read
-  logic [AXI_ADDR_WIDTH-1:0] read_data;
-  logic [AXI_ADDR_WIDTH-1:0] read_address;
-  logic read_valid;
-  logic read_ready;
-  logic address_read_ready;
+	//flip flops for latching data
+	reg [31:0] w_data_latch;
+	reg [8:0] w_addr_latch;
+  reg [8:0] r_addr_latch;
 
+  integer i;
+
+	//----------------------------------------------------------------------------
+  //	WRITE LOGIC
   //----------------------------------------------------------------------------
-  //	SEQUENTIAL LOGIC
-  //----------------------------------------------------------------------------
-  // Store Write data into registers
-  always_ff @(posedge ACLK) begin
-    if (!ARESETN) begin
-      image_fully_received            <= 32'b0;
+  
+  //write address handshake
+	always @(posedge ACLK) begin
+		if(~ARESETN | (AWVALID & AWREADY) )
+			AWREADY <= 0;
+		else if(~AWREADY & AWVALID)
+			AWREADY <= 1;
+	end
+
+	//write data handshake
+	always @(posedge ACLK) begin
+		if(~ARESETN | (WVALID & WREADY) )
+			WREADY <= 0;
+		else if(~WREADY & WVALID)
+			WREADY <= 1;
+	end
+
+	//keep track of which handshakes completed
+	always @(posedge ACLK) begin
+		if(ARESETN==0 || (w_addr_done & w_data_done) ) begin
+			w_addr_done <= 0;
+			w_data_done <= 0;
+		end else begin	
+			if(AWVALID & AWREADY) //look for addr handshake
+				w_addr_done <= 1;
+			if(WVALID & WREADY) //look for data handshake
+				w_data_done <= 1;	
+		end
+	end
+
+	//latching logic
+	always @(posedge ACLK) begin
+		if(ARESETN==0) begin
+			w_data_latch <= 32'd0;
+			w_addr_latch <= 8'd0;
+    end else begin
+			if(WVALID & WREADY) //look for data handshake
+				w_data_latch <= WDATA;
+			if(AWVALID & AWREADY)
+				w_addr_latch <= AWADDR;
+		end
+	end
+
+	//write response logic
+	always @(posedge ACLK) begin	
+		if( ARESETN==0 | (BVALID & BREADY) )
+			BVALID <= 0;
+		else if(~BVALID & (w_data_done & w_addr_done) )
+			BVALID <= 1;	
+	end
+
+	//write logic for register file
+	always @(posedge ACLK) begin
+		if(ARESETN == 0) begin
+      image_fully_received          <= 32'b0;
       foreach (image_data[i])
-        image_data[i]                 <= 0;
-    
-    end else if (write_ready) begin
-      if (write_address < 256)
-        image_data[write_address]   <= apply_wstrb(image_data[write_address], write_data, strb);
+        image_data[i]               <= 0;
+    end else if(write_en) begin
+      if (w_addr_latch < 256)
+        image_data[w_addr_latch]   <= apply_wstrb(image_data[w_addr_latch], w_data_latch, WSTRB);
       else
-        image_fully_received        <= apply_wstrb(image_fully_received, write_data, strb);
+        image_fully_received        <= apply_wstrb(image_fully_received, w_data_latch, WSTRB);
     end
-  end
-
-  // BVALID set following any successful write to the SNN coprocessor
-  always_ff @(posedge ACLK)
-    if (!ARESETN)
-      write_response_valid <= 0;
-    else if (write_ready)
-      write_response_valid <= 1;
-    else if (BREADY)
-      write_response_valid <= 0;
-
-  always_ff @(posedge ACLK)
-    if (!ARESETN)
-      address_write_ready <= 1'b0;
-    else  
-      address_write_ready <= !address_write_ready && (AWVALID && WVALID) && (!BVALID || BREADY);
+	end
 
 
-  always_ff @(posedge ACLK)
-    if (!RVALID || RREADY)
-      read_data <= infered_data;
-
-  always_ff @(posedge ACLK)
-    if (!ARESETN)
-      read_valid <= 1'b0;
-    else if (read_ready)
-      read_valid <= 1'b1;
-    else if (RREADY)
-      read_valid <= 1'b0;   
   //----------------------------------------------------------------------------
-  //	COMBINATORIAL LOGIC
+  //	READ LOGIC
   //----------------------------------------------------------------------------
-  assign write_ready    = address_write_ready;
-  assign write_address  = AWADDR[8:0];
-  assign write_data     = WDATA;
-  assign strb           = WSTRB;
+  
+  //Read address handshake
+	always @(posedge ACLK) begin
+		if(~ARESETN | (ARVALID & ARREADY) )
+			ARREADY <= 0;
+		else if(~ARREADY & ARVALID)
+			ARREADY <= 1;
+	end
 
+	//Read data handshake
+	always @(posedge ACLK) begin
+		if(~ARESETN | (RVALID & RREADY) )
+			RVALID <= 0;
+		else if(RREADY & ~RVALID)
+			RVALID <= 1;
+	end
+
+	//keep track of which handshakes completed
+	always @(posedge ACLK) begin
+		if(ARESETN==0 || (r_addr_done & r_data_done) ) begin
+			r_addr_done <= 0;
+			r_data_done <= 0;
+		end else begin	
+			if(ARVALID & ARREADY) //look for addr handshake
+				r_addr_done <= 1;
+			if(RVALID & RREADY) //look for data handshake
+				r_data_done <= 1;	
+		end
+	end
+
+	//latching logic
+	always @(posedge ACLK) begin
+		if(ARESETN==0) begin
+			RDATA <= 32'd0;
+			r_addr_latch <= 8'd0;
+    end else begin
+			if(RVALID & RREADY) //look for data handshake
+				RDATA <= infered_data;
+			if(ARVALID & ARREADY)
+				r_addr_latch <= AWADDR;
+		end
+	end
+
+  //----------------------------------------------------------------------------
+  //	COMBINATORIAL
+  //----------------------------------------------------------------------------
+  assign write_en = w_data_done & w_addr_done;
   assign infered_data   = {COPROCESSOR_RDY, 23'b0, INFERED_DIGIT};
-  assign read_ready     = (ARVALID && ARREADY);
-	assign read_address   = ARADDR[8:0];
-  always_comb
-    address_read_ready  = !RVALID;
 
   //----------------------------------------------------------------------------
-  //	OUTPUT
+  //	OUTPUTS
   //----------------------------------------------------------------------------
-  assign AWREADY    = address_write_ready;
-  assign WREADY     = address_write_ready;
-  assign BRESP      = 2'b00;                      // Assume no error
-  assign BVALID     = write_response_valid;
-
-  assign ARREADY    = address_read_ready;
-  assign RDATA      = read_data;
-  assign RRESP      = 2'b00;       // Assume no error
-  assign RVALID     = read_valid;
-
-  assign IMAGE      = image_data;
+  assign BRESP = 2'd0; //always indicate OKAY status for writes
+  assign RRESP = 2'd0; //always indicate OKAY status for reads
+  assign IMAGE = image_data;
   assign NEW_IMAGE  = (image_fully_received != 0) ? 1'b1: 1'b0;
-
   //----------------------------------------------------------------------------
   //	FUNCTIONS
   //----------------------------------------------------------------------------
