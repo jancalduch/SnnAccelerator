@@ -272,17 +272,11 @@ module AXI_tb();
         WVALID  <= 0;
       end
               
-      //both handshakes have occured, deassert strobe
-      WSTRB <= 0;
-  
-      //wait for valid response
-      wait(BVALID);
-      
-      //both handshake signals and rising edge
-      @(posedge CLK);
-  
-      //deassert ready for response
-      BREADY <= 0;
+      WSTRB <= 0;      //both handshakes have occured, deassert strobe
+
+      wait(BVALID);   //wait for valid response
+      @(posedge CLK); //both handshake signals and rising edge
+      BREADY = 0;     //deassert ready for response
   
     end
   endtask;
