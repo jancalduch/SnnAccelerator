@@ -1,17 +1,22 @@
-/* Slave Interface for AXI4-Lite. Wrapper for
-    the input and output interfaces. 
+/* Slave Interface for AXI4-Lite.
     
-    Address range:   256*32 (image) + 1*32 (inference) = 8224
-    Address offset:  0x0000000
-    Address:         0x0000000 - 0x000201F
+
+    Write Registers:
+      0-255:  image_data
+      256:    image_fully_received
+    Read Registers:
+      0:      infered_data
   */
 
 
 module S_AXI_interface #(
-  // Width of S_AXI data bus
-  parameter integer AXI_DATA_WIDTH	= 32,
-  // Width of S_AXI address bus
-  parameter integer AXI_ADDR_WIDTH	= 7
+  parameter integer AXI_DATA_WIDTH	= 32,     // Width of S_AXI data bus
+  parameter integer AXI_ADDR_WIDTH	= 7,      // Width of S_AXI address bus
+  
+  parameter integer IMAGE_SIZE      = 256,
+  parameter integer IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
+  parameter integer PIXEL_MAX_VALUE = 255,
+	parameter integer PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE)
 )(
   input logic                   ACLK,         // Clock input
   input logic                   ARESETN,      // Reset input (active low)
@@ -47,54 +52,128 @@ module S_AXI_interface #(
 
   // From SNN
   input logic                   COPROCESSOR_RDY,
-  input logic [7:0]             INFERED_DIGIT
+  input logic [7:0]             INFERED_DIGIT,
 
   // To SNN
-
+  output logic [PIXEL_BITS-1:0] IMAGE [0:IMAGE_SIZE-1],
+  output logic NEW_IMAGE
 );
-  
-  AXI_in #(
-    AXI_DATA_WIDTH,
-    AXI_ADDR_WIDTH
-  ) u_AXI_in (
-    .ACLK             (ACLK),
-    .ARESETN          (ARESETN),
 
-    .AWADDR           (AWADDR),
-    .AWPROT           (),
-    .AWVALID          (AWVALID),
-    .AWREADY          (AWREADY),
+  //----------------------------------------------------------------------------
+  //	LOGIC
+  //----------------------------------------------------------------------------
 
-    .WDATA            (WDATA),
-    .WSTRB            (WSTRB),
-    .WVALID           (WVALID),
-    .WREADY           (WREADY),
+  // Registers
+  logic [7:0] image_data[0:255];  // 256 8-bit pixel values
+  logic [31:0] image_fully_received;
+  logic [31:0] infered_data;
 
-    .BRESP            (BRESP),
-    .BVALID           (BVALID),
-    .BREADY           (BREADY)
-  );
+  // Write
+  logic [AXI_ADDR_WIDTH-1:0] write_address;
+  logic [AXI_DATA_WIDTH-1:0] write_data;
+  logic [AXI_DATA_WIDTH/8-1:0] strb;
 
-  AXI_out #(
-    AXI_DATA_WIDTH,
-    AXI_ADDR_WIDTH
-  ) u_AXI_out (
-    .ACLK             (ACLK),
-    .ARESETN          (ARESETN),
+  logic write_ready;              // Indicate we want to write to a register
+  logic address_write_ready;
+  logic write_response_valid;
 
-    .ARADDR           (ARADDR),
-    .ARPROT           (ARPROT),
-    .ARVALID          (ARVALID),
-    .ARREADY          (ARREADY),
+  // Read
+  logic [AXI_ADDR_WIDTH-1:0] read_data;
+  logic [AXI_ADDR_WIDTH-1:0] read_address;
+  logic read_valid;
+  logic read_ready;
+  logic address_read_ready;
 
-    .RDATA            (RDATA),
-    .RRESP            (RRESP),
-    .RVALID           (RVALID),
-    .RREADY           (RREADY),
+  //----------------------------------------------------------------------------
+  //	SEQUENTIAL LOGIC
+  //----------------------------------------------------------------------------
+  // Store Write data into registers
+  always_ff @(posedge ACLK) begin
+    if (!ARESETN) begin
+      image_fully_received            <= 32'b0;
+      foreach (image_data[i])
+        image_data[i]                 <= 0;
+    
+    end else if (write_ready) begin
+      if (write_address < 256)
+        image_data[write_address]   <= apply_wstrb(image_data[write_address], write_data, strb);
+      else
+        image_fully_received        <= apply_wstrb(image_fully_received, write_data, strb);
+    end
+  end
 
-    .COPROCESSOR_RDY  (COPROCESSOR_RDY),
-    .INFERED_DIGIT    (INFERED_DIGIT)
-  );
+  // BVALID set following any successful write to the SNN coprocessor
+  always_ff @(posedge ACLK)
+    if (!ARESETN)
+      write_response_valid <= 0;
+    else if (write_ready)
+      write_response_valid <= 1;
+    else if (BREADY)
+      write_response_valid <= 0;
+
+  always_ff @(posedge ACLK)
+    if (!ARESETN)
+      address_write_ready <= 1'b0;
+    else  
+      address_write_ready <= !address_write_ready && (AWVALID && WVALID) && (!BVALID || BREADY);
+
+
+  always_ff @(posedge ACLK)
+    if (!RVALID || RREADY)
+      read_data <= infered_data;
+
+  always_ff @(posedge ACLK)
+    if (!ARESETN)
+      read_valid <= 1'b0;
+    else if (read_ready)
+      read_valid <= 1'b1;
+    else if (RREADY)
+      read_valid <= 1'b0;   
+  //----------------------------------------------------------------------------
+  //	COMBINATORIAL LOGIC
+  //----------------------------------------------------------------------------
+  assign write_ready    = address_write_ready;
+  assign write_address  = AWADDR[8:0];
+  assign write_data     = WDATA;
+  assign strb           = WSTRB;
+
+  assign infered_data   = {COPROCESSOR_RDY, 23'b0, INFERED_DIGIT};
+  assign read_ready     = (ARVALID && ARREADY);
+	assign read_address   = ARADDR[8:0];
+  always_comb
+    address_read_ready  = !RVALID;
+
+  //----------------------------------------------------------------------------
+  //	OUTPUT
+  //----------------------------------------------------------------------------
+  assign AWREADY    = address_write_ready;
+  assign WREADY     = address_write_ready;
+  assign BRESP      = 2'b00;                      // Assume no error
+  assign BVALID     = write_response_valid;
+
+  assign ARREADY    = address_read_ready;
+  assign RDATA      = read_data;
+  assign RRESP      = 2'b00;       // Assume no error
+  assign RVALID     = read_valid;
+
+  assign IMAGE      = image_data;
+  assign NEW_IMAGE  = (image_fully_received != 0) ? 1'b1: 1'b0;
+
+  //----------------------------------------------------------------------------
+  //	FUNCTIONS
+  //----------------------------------------------------------------------------
+  function [AXI_DATA_WIDTH-1:0]	apply_wstrb;
+    input	[AXI_DATA_WIDTH-1:0]		prior_data;
+    input	[AXI_DATA_WIDTH-1:0]		new_data;
+    input	[AXI_DATA_WIDTH/8-1:0]	wstrb;
+
+    integer	k;
+    for(k = 0; k < AXI_DATA_WIDTH/8; k = k + 1)
+    begin
+      apply_wstrb[k*8 +: 8]
+        = wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
+    end
+  endfunction
   
   endmodule
   

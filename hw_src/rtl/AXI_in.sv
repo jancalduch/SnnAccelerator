@@ -4,11 +4,9 @@
     Address:         0x0000000 - 0x0001FFF
 */
 
-module AXI_in #(
-  // Width of S_AXI data bus
-  parameter integer AXI_DATA_WIDTH	= 32,
-  // Width of S_AXI address bus
-  parameter integer AXI_ADDR_WIDTH	= 7
+module AXI_in #(  
+  parameter integer AXI_DATA_WIDTH	= 32,     // Width of S_AXI data bus
+  parameter integer AXI_ADDR_WIDTH	= 7       // Width of S_AXI address bus
 )(
   input logic                   ACLK,         // Clock input
   input logic                   ARESETN,      // Reset input (active low)
