@@ -71,7 +71,6 @@ module S_AXI_interface #(
   logic [AXI_DATA_WIDTH-1:0] write_data;
   logic [AXI_DATA_WIDTH/8-1:0] strb;
 
-  logic write_ready;              // Indicate we want to write to a register
   logic address_write_ready;
   logic write_response_valid;
 
@@ -79,8 +78,6 @@ module S_AXI_interface #(
   logic [AXI_ADDR_WIDTH-1:0] read_data;
   logic [AXI_ADDR_WIDTH-1:0] read_address;
   logic read_valid;
-  logic read_ready;
-  logic address_read_ready;
 
   //----------------------------------------------------------------------------
   //	SEQUENTIAL LOGIC
@@ -92,7 +89,7 @@ module S_AXI_interface #(
       foreach (image_data[i])
         image_data[i]                 <= 0;
     
-    end else if (write_ready) begin
+    end else if (address_write_ready) begin
       if (write_address < 256)
         image_data[write_address]   <= apply_wstrb(image_data[write_address], write_data, strb);
       else
@@ -104,7 +101,7 @@ module S_AXI_interface #(
   always_ff @(posedge ACLK)
     if (!ARESETN)
       write_response_valid <= 0;
-    else if (write_ready)
+    else if (address_write_ready)
       write_response_valid <= 1;
     else if (BREADY)
       write_response_valid <= 0;
@@ -115,31 +112,30 @@ module S_AXI_interface #(
     else  
       address_write_ready <= !address_write_ready && (AWVALID && WVALID) && (!BVALID || BREADY);
 
-
+  // Read data from register
   always_ff @(posedge ACLK)
-    if (!RVALID || RREADY)
-      read_data <= infered_data;
+  if (!ARESETN)
+    read_data <= 0;
+  else if (!RVALID || RREADY)
+    read_data <= infered_data;
 
+  // Read handshake logic
   always_ff @(posedge ACLK)
     if (!ARESETN)
       read_valid <= 1'b0;
-    else if (read_ready)
+    else if (ARVALID && ARREADY)
       read_valid <= 1'b1;
     else if (RREADY)
       read_valid <= 1'b0;   
   //----------------------------------------------------------------------------
   //	COMBINATORIAL LOGIC
   //----------------------------------------------------------------------------
-  assign write_ready    = address_write_ready;
   assign write_address  = AWADDR[8:0];
   assign write_data     = WDATA;
   assign strb           = WSTRB;
 
   assign infered_data   = {COPROCESSOR_RDY, 23'b0, INFERED_DIGIT};
-  assign read_ready     = (ARVALID && ARREADY);
 	assign read_address   = ARADDR[8:0];
-  always_comb
-    address_read_ready  = !RVALID;
 
   //----------------------------------------------------------------------------
   //	OUTPUT
@@ -149,7 +145,7 @@ module S_AXI_interface #(
   assign BRESP      = 2'b00;                      // Assume no error
   assign BVALID     = write_response_valid;
 
-  assign ARREADY    = address_read_ready;
+  assign ARREADY    = !RVALID;
   assign RDATA      = read_data;
   assign RRESP      = 2'b00;       // Assume no error
   assign RVALID     = read_valid;

@@ -16,8 +16,7 @@ module AXI_tb();
   logic [31:0] IMAGE_IN [0:IMAGE_SIZE-1];
   logic [31:0] init_values [0:IMAGE_SIZE-1];
 
-  logic infered_digit_valid;
-  logic [7:0] result;
+  logic [31:0] read_data;
 
   //DUT
   logic CLK;
@@ -59,7 +58,7 @@ module AXI_tb();
 
   initial begin
     AXI_tb_ready  = 1'b0;
-    result        = 1'b0;
+    read_data     = 32'b0;
 
     AWVALID       = 1'b0;
     WVALID        = 1'b0;
@@ -70,7 +69,6 @@ module AXI_tb();
     
     COPROCESSOR_RDY = 1'b0;
     INFERED_DIGIT = 3;
-    infered_digit_valid = 1'b0;
 
     // Initialize image to 0
     for (int i = 0; i < IMAGE_SIZE; i++) begin
@@ -125,7 +123,7 @@ module AXI_tb();
   // -- DUT and assignments
   // ------------------------------
 
-  S_AXI_interface2 #(
+  S_AXI_interface #(
     AXI_DATA_WIDTH,
     AXI_ADDR_WIDTH,
     IMAGE_SIZE,     
@@ -216,15 +214,15 @@ module AXI_tb();
     join_none
     
     // Read until a result is valid
-    while(!infered_digit_valid) begin
-      axi_read(0, result, infered_digit_valid);
+    while(!read_data[31]) begin
+      axi_read(0, read_data);
     end
 
     COPROCESSOR_RDY <= 1'b0;
     ARVALID <= 1'b0;
     RREADY <= 1'b0;
     
-    assert (result == INFERED_DIGIT) else $fatal("Wrong value read");
+    assert (read_data[7:0] == INFERED_DIGIT) else $fatal("Wrong value read");
 
     wait_ns(500);
 
@@ -244,7 +242,6 @@ module AXI_tb();
     input [31:0] addr;
     input [31:0] data;
     begin
-      wait_ns(3);
       AWADDR  <= addr;	//Put write address on bus
       AWVALID <= 1'b1;	//indicate address is valid
 
@@ -285,41 +282,25 @@ module AXI_tb();
 
   task axi_read;
     input [31:0] addr;
-    output [7:0] digit;
-    output digit_valid;
+    output logic [31:0] data;
     begin
-      wait_ns(3);
-      ARADDR  <= addr;	//Put write address on bus
-      ARVALID <= 1'b1;	//indicate address is valid
-
-      RREADY  <= 1'b1;	//indicate ready to read
-  
-      //wait for one slave ready signal or the other and a positive edge
-      wait(RVALID || ARREADY);
       @(posedge CLK);
+      ARADDR <= addr;     // Put read address on bus
+      ARVALID <= 1'b1;    // Indicate address is valid
+      RREADY <= 1'b1;     // Indicate ready for a response
 
-      if(RVALID && ARREADY) begin   //received both ready signals
-        ARVALID       <= 0;
-        RREADY        <= 0;
-      end else begin                //wait for the other signal and a positive edge
-        if(RVALID) begin            //case data handshake completed
-          RREADY        <= 0;
-          wait(ARREADY);            //wait for address address ready
-        end else if(ARREADY) begin  //case address handshake completed
-          ARVALID       <= 0;
-          wait(RVALID);             //wait for data ready
-        end 
-        
-        digit         <= RDATA[7:0];
-        digit_valid   <= RDATA[31];
+      // Wait for address handshake to complete
+      wait(ARREADY);
+      @(posedge CLK);
+      ARVALID <= 0;       // Deassert address valid after handshake
 
-        @(posedge CLK);             // complete the second handshake
-        ARVALID <= 0;               //make sure both valid signals are deasserted
-        RREADY  <= 0;
-      end
-  
+      // Wait for data response
+      wait(RVALID);
+      @(posedge CLK);
+      data = RDATA;      // Assign received data
+      RREADY <= 0;        // Deassert ready for response
     end
-  endtask;
+  endtask
 
   task automatic SNN_send_result;
     input [7:0] digit;
