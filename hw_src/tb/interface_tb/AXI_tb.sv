@@ -125,7 +125,7 @@ module AXI_tb();
   // -- DUT and assignments
   // ------------------------------
 
-  S_AXI_interface #(
+  S_AXI_interface2 #(
     AXI_DATA_WIDTH,
     AXI_ADDR_WIDTH,
     IMAGE_SIZE,     
@@ -298,9 +298,6 @@ module AXI_tb();
       wait(RVALID || ARREADY);
       @(posedge CLK);
 
-      digit         = RDATA[7:0];
-      digit_valid   = RDATA[31];
-
       if(RVALID && ARREADY) begin   //received both ready signals
         ARVALID       <= 0;
         RREADY        <= 0;
@@ -312,6 +309,10 @@ module AXI_tb();
           ARVALID       <= 0;
           wait(RVALID);             //wait for data ready
         end 
+        
+        digit         <= RDATA[7:0];
+        digit_valid   <= RDATA[31];
+
         @(posedge CLK);             // complete the second handshake
         ARVALID <= 0;               //make sure both valid signals are deasserted
         RREADY  <= 0;
