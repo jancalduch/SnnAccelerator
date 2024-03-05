@@ -207,7 +207,7 @@ module AXI_tb();
     //--------------------------------------------------------------------------
     //	READ RESULT
     //--------------------------------------------------------------------------
-    // After some time, send a result to sent through AXI.
+    // After some time, simulate SNN sending a result
     fork
       SNN_send_result(5, 3000);
     join_none
