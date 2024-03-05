@@ -123,14 +123,14 @@ module AXI_tb();
   // -- DUT and assignments
   // ------------------------------
 
-  S_AXI_interface #(
+  S_AXI4l_interface #(
     AXI_DATA_WIDTH,
     AXI_ADDR_WIDTH,
     IMAGE_SIZE,     
     IMAGE_SIZE_BITS,
     PIXEL_MAX_VALUE,
     PIXEL_BITS     
-  ) u_S_AXI_interface (
+  ) u_S_AXI4l_interface (
     .ACLK             (CLK),
     .ARESETN          (ARESETN),
 
@@ -158,7 +158,6 @@ module AXI_tb();
     .RVALID           (RVALID),
     .RREADY           (RREADY),
 
-    .COPROCESSOR_RDY  (COPROCESSOR_RDY),
     .INFERED_DIGIT    (INFERED_DIGIT),
 
     .IMAGE            (IMAGE),
@@ -192,11 +191,11 @@ module AXI_tb();
     // Send data byte by byte
     for (int address = 0; address < IMAGE_SIZE; address++) begin
       wait_ns(8);
-      axi_write(address, IMAGE_IN[address]);
+      axi4l_write(address, IMAGE_IN[address]);
     end
     // Notify that image is fully sent
-    axi_write(256, 1);
-    axi_write(256, 0);
+    axi4l_write(256, 1);
+    axi4l_write(256, 0);
 
     // Check that image is correct
     for (int i = 0; i < IMAGE_SIZE; i++) begin
@@ -213,14 +212,12 @@ module AXI_tb();
       SNN_send_result(5, 3000);
     join_none
     
-    // Read until a result is valid
-    while(!read_data[31]) begin
-      axi_read(0, read_data);
-    end
+    // Wait until a result is valid and then read
+    wait(COPROCESSOR_RDY);
+    wait_ns(4);
+    axi4l_read(0, read_data);
 
     COPROCESSOR_RDY <= 1'b0;
-    ARVALID <= 1'b0;
-    RREADY <= 1'b0;
     
     assert (read_data[7:0] == INFERED_DIGIT) else $fatal("Wrong value read");
 
@@ -238,7 +235,7 @@ module AXI_tb();
     #tics_ns;
   endtask
 
-  task axi_write;
+  task axi4l_write;
     input [31:0] addr;
     input [31:0] data;
     begin
@@ -280,7 +277,7 @@ module AXI_tb();
     end
   endtask;
 
-  task axi_read;
+  task axi4l_read;
     input [31:0] addr;
     output logic [31:0] data;
     begin
