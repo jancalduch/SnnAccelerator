@@ -77,7 +77,6 @@ module S_AXI4l_interface #(
   logic write_response_valid;
 
   // Read
-  logic [AXI_ADDR_WIDTH-1:0] read_data;
   logic [AXI_ADDR_WIDTH-1:0] read_address;
   logic read_valid;
   logic address_read_ready;
@@ -118,9 +117,9 @@ module S_AXI4l_interface #(
   // Read data from registers
   always_ff @(posedge ACLK)
     if (!ARESETN || image_fully_received)
-      read_data <= 0;
+      infered_data <= 32'b0;
     else if (!read_valid || RREADY)
-      read_data <= infered_data;
+      infered_data <= {24'b0, INFERED_DIGIT};
 
   // Complete read handshake
   always_ff @(posedge ACLK)
@@ -138,9 +137,7 @@ module S_AXI4l_interface #(
   assign write_data     = WDATA;
   assign strb           = WSTRB;
 
-  assign infered_data   = {24'b0, INFERED_DIGIT};
   assign read_address   = ARADDR[8:0];
-  
   always_comb
     address_read_ready  = !read_valid;
 
@@ -153,7 +150,7 @@ module S_AXI4l_interface #(
   assign BVALID     = write_response_valid;
 
   assign ARREADY    = address_read_ready;
-  assign RDATA      = read_data;
+  assign RDATA      = infered_data;
   assign RRESP      = 2'b00;       // Assume no error
   assign RVALID     = read_valid;
 
