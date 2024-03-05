@@ -11,7 +11,7 @@ module S_AXI4l_interface #(
   parameter integer M               = 8,      // log2(N)
 
   parameter integer AXI_DATA_WIDTH  = 32,     // Width of S_AXI data bus
-  parameter integer AXI_ADDR_WIDTH  = 7,      // Width of S_AXI address bus
+  parameter integer AXI_ADDR_WIDTH  = 32,      // Width of S_AXI address bus
   
   parameter integer IMAGE_SIZE      = 256,
   parameter integer IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),

@@ -1,4 +1,6 @@
 module AXI_tb();
+  localparam N                = 256;
+  localparam M                = $clog2(N);
 
   localparam IMAGE_SIZE       = 256;
   localparam IMAGE_SIZE_BITS  = $clog2(IMAGE_SIZE);
@@ -68,7 +70,7 @@ module AXI_tb();
     RREADY        = 1'b0;
     
     COPROCESSOR_RDY = 1'b0;
-    INFERED_DIGIT = 3;
+    INFERED_DIGIT = 0;
 
     // Initialize image to 0
     for (int i = 0; i < IMAGE_SIZE; i++) begin
@@ -124,6 +126,8 @@ module AXI_tb();
   // ------------------------------
 
   S_AXI4l_interface #(
+    N,
+    M,
     AXI_DATA_WIDTH,
     AXI_ADDR_WIDTH,
     IMAGE_SIZE,     
@@ -199,7 +203,7 @@ module AXI_tb();
 
     // Check that image is correct
     for (int i = 0; i < IMAGE_SIZE; i++) begin
-      assert (IMAGE_IN[i] == u_S_AXI_interface.image_data[i]) else $error("It's gone wrong");
+      assert (IMAGE_IN[i] == u_S_AXI4l_interface.image_data[i]) else $error("It's gone wrong");
     end
 
     wait_ns(100);
