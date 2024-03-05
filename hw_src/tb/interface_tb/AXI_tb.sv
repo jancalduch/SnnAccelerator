@@ -194,7 +194,6 @@ module AXI_tb();
 
     // Send data byte by byte
     for (int address = 0; address < IMAGE_SIZE; address++) begin
-      wait_ns(8);
       axi4l_write(address, IMAGE_IN[address]);
     end
     // Notify that image is fully sent
