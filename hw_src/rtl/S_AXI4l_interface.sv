@@ -11,7 +11,7 @@ module S_AXI4l_interface #(
   parameter integer M               = 8,      // log2(N)
 
   parameter integer AXI_DATA_WIDTH  = 32,     // Width of S_AXI data bus
-  parameter integer AXI_ADDR_WIDTH  = 32,      // Width of S_AXI address bus
+  parameter integer AXI_ADDR_WIDTH  = 32,     // Width of S_AXI address bus
   
   parameter integer IMAGE_SIZE      = 256,
   parameter integer IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
@@ -65,31 +65,29 @@ module S_AXI4l_interface #(
   // Registers
   logic [PIXEL_BITS-1:0] image_data [0:IMAGE_SIZE-1];   // 256 8-bit pixel values
   logic [AXI_DATA_WIDTH-1:0] image_fully_received;      // Flag to indicate all pixels have been received
-  logic [AXI_DATA_WIDTH-1:0] infered_data;              // Infered digit from SNN and COP_RDY flag
+  logic [AXI_DATA_WIDTH-1:0] infered_data;              // Infered digit from SNN
 
   // Write
   logic [AXI_ADDR_WIDTH-1:0] write_address;
   logic [AXI_DATA_WIDTH-1:0] write_data;
   logic [AXI_DATA_WIDTH/8-1:0] strb;
 
-  logic write_ready;              // Indicate we want to write to a register
-  logic address_write_ready;
-  logic write_response_valid;
+  logic axi_wready;              // Indicate we want to write to a register
+  logic axi_awready;
+  logic axi_bvalid;
 
   // Read
   logic [AXI_ADDR_WIDTH-1:0] read_address;
-  logic read_valid;
-  logic address_read_ready;
+  logic axi_rvalid;
+  logic axi_arready;
 
   //----------------------------------------------------------------------------
   //  SEQUENTIAL LOGIC
   //----------------------------------------------------------------------------
   // Complete address and data write handshake
   always_ff @(posedge ACLK)
-    if (!ARESETN)
-      address_write_ready <= 1'b0;
-    else  
-      address_write_ready <= !address_write_ready && (AWVALID && WVALID) && (!BVALID || BREADY);
+    if (!ARESETN) axi_awready <= 1'b0;
+    else          axi_awready <= !axi_awready && (AWVALID && WVALID) && (!BVALID || BREADY);
   
   // Store Write data into registers
   always_ff @(posedge ACLK) begin
@@ -97,7 +95,7 @@ module S_AXI4l_interface #(
       image_fully_received            <= 32'b0;
       foreach (image_data[i])
         image_data[i]                 <= 0;
-    end else if (write_ready) begin
+    end else if (axi_wready) begin
       if (write_address < 256)
         image_data[write_address]   <= apply_wstrb(image_data[write_address], write_data, strb);
       else
@@ -107,52 +105,43 @@ module S_AXI4l_interface #(
 
   // BVALID set following any successful write to the SNN coprocessor
   always_ff @(posedge ACLK)
-    if (!ARESETN)
-      write_response_valid <= 0;
-    else if (write_ready)
-      write_response_valid <= 1;
-    else if (BREADY)
-      write_response_valid <= 0;
+    if (!ARESETN)         axi_bvalid <= 0;
+    else if (axi_wready)  axi_bvalid <= 1;
+    else if (BREADY)      axi_bvalid <= 0;
 
   // Read data from registers
   always_ff @(posedge ACLK)
-    if (!ARESETN || image_fully_received)
-      infered_data <= 32'b0;
-    else if (!read_valid || RREADY)
-      infered_data <= {24'b0, INFERED_DIGIT};
+    if (!ARESETN || image_fully_received) infered_data <= 32'b0;
+    else if (!axi_rvalid || RREADY)       infered_data <= {24'b0, INFERED_DIGIT};
 
   // Complete read handshake
   always_ff @(posedge ACLK)
-    if (!ARESETN)
-      read_valid <= 1'b0;
-    else if (ARVALID && ARREADY)
-      read_valid <= 1'b1;
-    else if (RREADY)         
-      read_valid <= 1'b0;   
+    if (!ARESETN)                 axi_rvalid <= 1'b0;
+    else if (ARVALID && ARREADY)  axi_rvalid <= 1'b1;
+    else if (RREADY)              axi_rvalid <= 1'b0;   
   //----------------------------------------------------------------------------
   //  COMBINATORIAL LOGIC
   //----------------------------------------------------------------------------
-  assign write_ready    = address_write_ready;
-  assign write_address  = AWADDR[8:0];
-  assign write_data     = WDATA;
-  assign strb           = WSTRB;
+  assign axi_wready       = axi_awready;
+  assign write_address    = AWADDR[8:0];
+  assign write_data       = WDATA;
+  assign strb             = WSTRB;
 
-  assign read_address   = ARADDR[8:0];
-  always_comb
-    address_read_ready  = !read_valid;
+  assign read_address     = ARADDR[8:0];
+  always_comb axi_arready = !axi_rvalid;
 
   //----------------------------------------------------------------------------
   //  OUTPUT
   //----------------------------------------------------------------------------
-  assign AWREADY    = address_write_ready;
-  assign WREADY     = address_write_ready;
+  assign AWREADY    = axi_awready;
+  assign WREADY     = axi_wready;
   assign BRESP      = 2'b00;                      // Assume no error
-  assign BVALID     = write_response_valid;
+  assign BVALID     = axi_bvalid;
 
-  assign ARREADY    = address_read_ready;
+  assign ARREADY    = axi_arready;
   assign RDATA      = infered_data;
   assign RRESP      = 2'b00;       // Assume no error
-  assign RVALID     = read_valid;
+  assign RVALID     = axi_rvalid;
 
   assign IMAGE      = image_data;
   assign NEW_IMAGE  = (image_fully_received != 0) ? 1'b1: 1'b0;
