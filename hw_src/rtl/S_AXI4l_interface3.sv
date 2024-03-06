@@ -105,7 +105,7 @@ module S_AXI4l_interface3 #(
   if (!ARESETN)                   axi_wready <= 1'b1;
   else if (write_response_stall)  axi_wready <= !valid_write_data;
   else if (valid_write_address)   axi_wready <= 1'b1;
-  else                            axi_wready <= (axi_wready && !S_AXI_WVALID);  // axi_wready <= !valid_write_data
+  else                            axi_wready <= (axi_wready && !WVALID);  // axi_wready <= !valid_write_data
 
   /* Buffer address, data and strobe, and then write:
     Write the data if the output channel isn't stalled, we have a valid 
@@ -136,7 +136,7 @@ module S_AXI4l_interface3 #(
         image_data[i]             <= 0;
     end else if (!write_response_stall && valid_write_address && valid_write_data) begin
       if (waddr < 256)
-        image_data[write_address] <= apply_wstrb(image_data[waddr], wdata, wstrb);
+        image_data[waddr] <= apply_wstrb(image_data[waddr], wdata, wstrb);
       else
         image_fully_received      <= apply_wstrb(image_fully_received, wdata, wstrb);
     end
