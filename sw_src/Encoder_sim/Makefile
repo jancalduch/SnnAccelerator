@@ -2,7 +2,7 @@
 CC = gcc
 
 # Compiler flags
-CFLAGS = -Wall -Wextra -g
+CFLAGS = -Wall -Wextra -g -std=c99
 
 # Source files
 SOURCES = ROC.c
@@ -18,7 +18,7 @@ all: $(EXECUTABLE)
 
 # Rule for linking object files into the executable
 $(EXECUTABLE): $(OBJECTS)
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ 
 
 # Rule for compiling C source files into object files
 %.o: %.c
