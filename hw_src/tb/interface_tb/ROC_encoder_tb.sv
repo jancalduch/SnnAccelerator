@@ -72,7 +72,7 @@ module ROC_encoder_tb ();
   // ------------------------------
   // -- DUT and assignments
   // ------------------------------
-  ROC_encoder #(
+  ROC_encoder2 #(
     IMAGE_SIZE,
     IMAGE_SIZE_BITS,
     PIXEL_MAX_VALUE,

@@ -43,6 +43,7 @@ module ROC_encoder2 #(
     FREQUENCY,
     CUMULATIVE_SUM,
     SORT,
+    CHOOSE_VALUE,
     SEND_AER,
     WAIT_AER
   } state_t;
@@ -54,6 +55,8 @@ module ROC_encoder2 #(
 
   // Register to store the count of each intensity value
   logic [PIXEL_BITS-1:0] frequency [0:PIXEL_MAX_VALUE];
+  // Sorted image
+  logic [PIXEL_BITS-1:0] sorted_image [0:IMAGE_SIZE-1];
   
   // Counters
   logic [IMAGE_SIZE_BITS-1:0] pixelID;
@@ -63,7 +66,7 @@ module ROC_encoder2 #(
 
   // Combinatorial wires
   logic [9:0] index;  // AER is 10 bits
-  logic [PIXEL_BITS-1:0] pixel_value
+  logic [PIXEL_BITS-1:0] pixel_value;
 
   //----------------------------------------------------------------------------
 	//	CONTROL FSM
@@ -83,14 +86,18 @@ module ROC_encoder2 #(
         else                                                      nextstate = IDLE;
 		  
       FREQUENCY: 
-        if ()                                                     nextstate = CUMULATIVE_SUM;
+        if (pixelID == IMAGE_SIZE)                                nextstate = CUMULATIVE_SUM;
         else                                                      nextstate = FREQUENCY;
       
       CUMULATIVE_SUM: 
-        if ()                                                     nextstate = SORT;
+        if (intensity == 0)                                       nextstate = SORT;
         else                                                      nextstate = CUMULATIVE_SUM;                        
      
       SORT: 
+        if (pixelID == 0)                                         nextstate = CHOOSE_VALUE;
+        else                                                      nextstate = SORT; 
+    
+      CHOOSE_VALUE: 
         if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))      nextstate = IDLE;
         else                                                      nextstate = SEND_AER;
   
@@ -101,7 +108,7 @@ module ROC_encoder2 #(
           if (aer_reset_cnt < 2)                                  nextstate = SEND_AER;
           else
             if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))  nextstate = IDLE; 
-            else                                                  nextstate = SORT;              
+            else                                                  nextstate = CHOOSE_VALUE;              
         else                                                      nextstate = WAIT_AER;
       default:    							                                  nextstate = IDLE;
 		endcase
@@ -117,9 +124,9 @@ module ROC_encoder2 #(
       pixelID <= 0;
     else if (state == IDLE  || ((pixelID == IMAGE_SIZE - 1) && state == SORT)) 
       pixelID <= 0;
-    else if (!AERIN_CTRL_BUSY && state == FREQUENCY)                                
+    else if (state == FREQUENCY || (!AERIN_CTRL_BUSY && state == CHOOSE_VALUE))                                
       pixelID <= pixelID + 1;
-    else if (!AERIN_CTRL_BUSY && state == SORT)                                
+    else if (state == SORT)                                
       pixelID <= pixelID - 1;
     else                                                                              
       pixelID <= pixelID;
@@ -153,7 +160,7 @@ module ROC_encoder2 #(
   always_ff @(posedge CLK, posedge RST)
     if      (RST)                                   index <= 10'b0;
     else if ((state == IDLE) || aer_reset_cnt < 2)  index <= {1'b0,1'b1,8'hFF};
-    else if (state == SORT)                         index <= {2'b0,pixelID};
+    else if (state == CHOOSE_VALUE)                 index <= {2'b0,sorted_image[pixelID]};
     else                                            index <= index;
 
   
@@ -166,6 +173,18 @@ module ROC_encoder2 #(
       frequency[pixel_value] <= frequency[pixel_value] + 1;
     else if (state == CUMULATIVE_SUM)                           
       frequency[intensity] <= frequency[intensity] + frequency[intensity+1];
+    else if (state == SORT)
+      frequency[pixel_value] <= frequency[pixel_value] - 1;
+    else 
+      frequency <= frequency;
+
+  // Register to store the sorted image
+  always_ff @(posedge CLK, posedge RST)
+    if (RST || state == IDLE) begin
+      foreach (sorted_image[i]) 
+        sorted_image[i] <= 0;
+    end else if (state == SORT)                           
+      sorted_image[frequency[pixel_value] - 1] <= pixelID;
     else 
       frequency <= frequency;
 
