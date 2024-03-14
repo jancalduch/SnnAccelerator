@@ -40,6 +40,8 @@ module ROC_encoder2 #(
 	// FSM states 
   typedef enum logic [3:0] {
     IDLE,
+    FREQUENCY,
+    CUMULATIVE_SUM,
     SORT,
     SEND_AER,
     WAIT_AER
@@ -61,7 +63,6 @@ module ROC_encoder2 #(
 
   // Combinatorial wires
   logic [9:0] index;  // AER is 10 bits
-  logic match_found;
   logic [PIXEL_BITS-1:0] pixel_value
 
   //----------------------------------------------------------------------------
@@ -69,32 +70,42 @@ module ROC_encoder2 #(
 	//----------------------------------------------------------------------------
     
   // State register
-	always @(posedge CLK, posedge RST)
-	begin
+	always_ff @(posedge CLK, posedge RST) begin
 		if   (RST) state <= IDLE;
 		else       state <= nextstate;
 	end
     
 	// Next state logic
-	always @(*)
+	always_comb begin
     case(state)
 			IDLE:	
-        if (NEW_IMAGE)                                                nextstate = SEND_AER;
-        else                                                          nextstate = IDLE;
-		  SORT: 
-        if (FIRST_INFERENCE_DONE || (indices_sent == IMAGE_SIZE))     nextstate = IDLE;
-        else if (match_found)                                         nextstate = SEND_AER;
-        else                                                          nextstate = SORT; 
-      SEND_AER:                                                       nextstate = WAIT_AER;
+        if (NEW_IMAGE)                                            nextstate = SEND_AER;
+        else                                                      nextstate = IDLE;
+		  
+      FREQUENCY: 
+        if ()                                                     nextstate = CUMULATIVE_SUM;
+        else                                                      nextstate = FREQUENCY;
+      
+      CUMULATIVE_SUM: 
+        if ()                                                     nextstate = SORT;
+        else                                                      nextstate = CUMULATIVE_SUM;                        
+     
+      SORT: 
+        if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))      nextstate = IDLE;
+        else                                                      nextstate = SEND_AER;
+  
+      SEND_AER:                                                   nextstate = WAIT_AER;
+      
       WAIT_AER: 
         if (!AERIN_CTRL_BUSY)
-          if (aer_reset_cnt < 2)                                      nextstate = SEND_AER;
+          if (aer_reset_cnt < 2)                                  nextstate = SEND_AER;
           else
-            if (FIRST_INFERENCE_DONE || (indices_sent == IMAGE_SIZE)) nextstate = IDLE; 
-            else                                                      nextstate = SORT;              
-        else                                                          nextstate = WAIT_AER;
-      default:    							                                      nextstate = IDLE;
+            if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))  nextstate = IDLE; 
+            else                                                  nextstate = SORT;              
+        else                                                      nextstate = WAIT_AER;
+      default:    							                                  nextstate = IDLE;
 		endcase
+  end
 
   //----------------------------------------------------------------------------
 	//	COUNTERS
@@ -102,10 +113,16 @@ module ROC_encoder2 #(
 
   // Counter up for pixel_ID
   always_ff @(posedge CLK or posedge RST) begin
-    if (RST)                                                                        pixelID <= 0;
-    else if (state == IDLE  || ((pixelID == IMAGE_SIZE - 1) && (state == SORT)))    pixelID <= 0;
-    else if (!AERIN_CTRL_BUSY && (state == SORT))                                   pixelID <= pixelID + 1;
-    else                                                                            pixelID <= pixelID;
+    if (RST)                                                                          
+      pixelID <= 0;
+    else if (state == IDLE  || ((pixelID == IMAGE_SIZE - 1) && state == SORT)) 
+      pixelID <= 0;
+    else if (!AERIN_CTRL_BUSY && state == FREQUENCY)                                
+      pixelID <= pixelID + 1;
+    else if (!AERIN_CTRL_BUSY && state == SORT)                                
+      pixelID <= pixelID - 1;
+    else                                                                              
+      pixelID <= pixelID;
   end
 
   // Counter down for intensity
@@ -122,22 +139,10 @@ module ROC_encoder2 #(
     else if (state == IDLE)         aer_reset_cnt <= 0;
     else if (state == SEND_AER)     aer_reset_cnt <= (aer_reset_cnt == 3) ? aer_reset_cnt: aer_reset_cnt + 1;
     else                            aer_reset_cnt <= aer_reset_cnt;
-
-  // Counter up for sent values
-  always_ff @(posedge CLK or posedge RST) begin
-    if (RST)                                indices_sent <= 0;
-    else if (state == IDLE)                 indices_sent <= 0;
-    else if (match_found && state == SORT)  indices_sent <= indices_sent + 1;
-    else                                    indices_sent <= indices_sent;   
-  end
  
   //----------------------------------------------------------------------------
 	//	COMBINATORIAL LOGIC
 	//----------------------------------------------------------------------------
-  always_comb begin
-    match_found = (IMAGE[pixelID] == intensity);
-  end
-
   // Mutiplexer
   always_comb begin
     pixel_value = IMAGE[pixelID];
@@ -148,22 +153,26 @@ module ROC_encoder2 #(
   always_ff @(posedge CLK, posedge RST)
     if      (RST)                                   index <= 10'b0;
     else if ((state == IDLE) || aer_reset_cnt < 2)  index <= {1'b0,1'b1,8'hFF};
-    else if (match_found)                           index <= {2'b0,pixelID};
+    else if (state == SORT)                         index <= {2'b0,pixelID};
     else                                            index <= index;
 
+  
+  // Register to store the count of each intensity value
   always_ff @(posedge CLK, posedge RST)
     if (RST || state == IDLE) begin
       foreach (frequency[i]) 
         frequency[i] <= 0;
-    end else if (match_found)                           
+    end else if (state == FREQUENCY)                           
       frequency[pixel_value] <= frequency[pixel_value] + 1;
+    else if (state == CUMULATIVE_SUM)                           
+      frequency[intensity] <= frequency[intensity] + frequency[intensity+1];
     else 
       frequency <= frequency;
 
   //----------------------------------------------------------------------------
 	//	OUTPUT
 	//----------------------------------------------------------------------------
-  assign FOUND_NEXT_INDEX = ((match_found && (state == SORT)) || (state == SEND_AER));
+  assign FOUND_NEXT_INDEX = (state == SORT) || (state == SEND_AER);
   assign NEXT_INDEX = index;
   assign ENCODER_RDY = (state == IDLE) ? 1'b1: 1'b0;
 
