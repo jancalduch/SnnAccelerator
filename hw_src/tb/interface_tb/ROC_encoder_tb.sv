@@ -20,7 +20,7 @@ module ROC_encoder_tb ();
   // From AER
   logic AERIN_CTRL_BUSY;
   
-  logic FIRST_INFERENCE_DONE;
+  logic INFERENCE_RDY;
 
   // 10/bit input AER link
   logic [9:0] NEXT_INDEX;
@@ -34,10 +34,10 @@ module ROC_encoder_tb ();
   // ------------------------------
 
   initial begin
-    sorter_ready      = 1'b0;
-    NEW_IMAGE         = 1'b0;
-    AERIN_CTRL_BUSY  = 1'b0;
-    FIRST_INFERENCE_DONE = 1'b0;
+    sorter_ready    = 1'b0;
+    NEW_IMAGE       = 1'b0;
+    AERIN_CTRL_BUSY = 1'b0;
+    INFERENCE_RDY   = 1'b0;
 
     // Initialize image to 0
     for (int i = 0; i < IMAGE_SIZE; i++) begin
@@ -87,16 +87,16 @@ module ROC_encoder_tb ();
     .NEW_IMAGE        ( NEW_IMAGE         ),
 
     // From AER
-    .AERIN_CTRL_BUSY ( AERIN_CTRL_BUSY  ),
+    .AERIN_CTRL_BUSY  ( AERIN_CTRL_BUSY  ),
 
-    .FIRST_INFERENCE_DONE (FIRST_INFERENCE_DONE),
+    .INFERENCE_RDY    (INFERENCE_RDY),
 
     // Next index sorted
     .NEXT_INDEX       ( NEXT_INDEX        ),
     .FOUND_NEXT_INDEX ( FOUND_NEXT_INDEX  ),
 
     // Image sorted
-    .ENCODER_RDY    ( ENCODER_RDY     )
+    .ENCODER_RDY      ( ENCODER_RDY     )
   );
 
   // ------------------------------

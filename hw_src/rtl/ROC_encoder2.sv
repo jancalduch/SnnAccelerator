@@ -172,16 +172,14 @@ module ROC_encoder2 #(
         sorted_image[i] <= 0;
     
     end else if (state == FREQUENCY) begin
-      pixel_value = IMAGE[pixelID];                          
-      frequency[pixel_value] = frequency[pixel_value] + 1;
+      frequency[IMAGE[pixelID]] <= frequency[IMAGE[pixelID]] + 1;
     
     end else if (state == CUMULATIVE_SUM)                           
-      frequency[intensity] = frequency[intensity] + frequency[intensity+1];
+      frequency[intensity] <= frequency[intensity] + frequency[intensity+1];
     
     else if (state == SORT) begin
-      pixel_value = IMAGE[pixelID];
-      sorted_image[frequency[pixel_value] - 1] = pixelID;
-      frequency[pixel_value] = frequency[pixel_value] - 1;
+      sorted_image[frequency[IMAGE[pixelID]] - 1] <= pixelID;
+      frequency[IMAGE[pixelID]] <= frequency[IMAGE[pixelID]] - 1;
     
     end else begin
       frequency <= frequency;
