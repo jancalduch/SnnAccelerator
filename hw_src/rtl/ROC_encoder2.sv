@@ -98,7 +98,7 @@ module ROC_encoder2 #(
         else                                                      nextstate = SORT; 
     
       CHOOSE_VALUE: 
-        if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE - 1))  nextstate = IDLE;
+        if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))      nextstate = IDLE;
         else                                                      nextstate = SEND_AER;
   
       SEND_AER:                                                   nextstate = WAIT_AER;
@@ -108,7 +108,7 @@ module ROC_encoder2 #(
           if (aer_reset_cnt < 2)                                  nextstate = SEND_AER;
           else if (aer_reset_cnt == 2)                            nextstate = FREQUENCY;
           else
-            if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE-1))  nextstate = IDLE; 
+            if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))  nextstate = IDLE; 
             else                                                  nextstate = CHOOSE_VALUE;              
         else                                                      nextstate = WAIT_AER;
       default:    							                                  nextstate = IDLE;
@@ -119,24 +119,26 @@ module ROC_encoder2 #(
 	//	COUNTERS
 	//----------------------------------------------------------------------------
 
-  // Counter up for pixel_ID
+  // Counter up for pixelID
   always_ff @(posedge CLK or posedge RST) begin
     if (RST)                                                                          
       pixelID <= 0;
-    else if (state == IDLE  || ((pixelID == IMAGE_SIZE - 1) && state == SORT)) 
+    else if (state == IDLE) 
       pixelID <= 0;
-    else if (state == FREQUENCY || (!AERIN_CTRL_BUSY && state == CHOOSE_VALUE))                                
+    else if (state == FREQUENCY)                                
       pixelID <= (pixelID == IMAGE_SIZE - 1) ? pixelID : pixelID + 1;
+    else if (!AERIN_CTRL_BUSY && state == CHOOSE_VALUE)                                
+      pixelID <= (pixelID == IMAGE_SIZE) ? pixelID : pixelID + 1;
     else if (state == SORT)                                
-      pixelID <= pixelID - 1;
+      pixelID <= (pixelID == 0) ? pixelID : pixelID - 1;
     else                                                                              
       pixelID <= pixelID;
   end
 
   // Counter down for intensity
   always_ff @(posedge CLK or posedge RST) begin
-    if (RST)                              intensity <= PIXEL_MAX_VALUE;
-    else if (state == IDLE)               intensity <= PIXEL_MAX_VALUE;
+    if (RST)                              intensity <= PIXEL_MAX_VALUE - 1;
+    else if (state == IDLE)               intensity <= PIXEL_MAX_VALUE - 1;
     else if (state == CUMULATIVE_SUM)     intensity <= (intensity == 0) ? intensity: intensity - 1;
     else                                  intensity <= intensity;
   end
@@ -151,45 +153,40 @@ module ROC_encoder2 #(
   //----------------------------------------------------------------------------
 	//	COMBINATORIAL LOGIC
 	//----------------------------------------------------------------------------
-  // Mutiplexer
-  always_comb begin
-    pixel_value = IMAGE[pixelID];
-  end
+  // Output value
+    always_comb begin
+      if      (RST)                                   index = 10'b0;
+      else if ((state == IDLE) || aer_reset_cnt < 2)  index = {1'b0,1'b1,8'hFF};
+      else if (state == CHOOSE_VALUE)                 index = {2'b0,sorted_image[pixelID]};
+      else                                            index = index;
+    end
   //----------------------------------------------------------------------------
 	//	REGISTERS
-	//----------------------------------------------------------------------------
-  // Output value
-  always_ff @(posedge CLK, posedge RST)
-    if      (RST)                                   index <= 10'b0;
-    else if ((state == IDLE) || aer_reset_cnt < 2)  index <= {1'b0,1'b1,8'hFF};
-    else if (state == CHOOSE_VALUE)                 index <= {2'b0,sorted_image[pixelID]};
-    else                                            index <= index;
-
-  
+	//----------------------------------------------------------------------------  
   // Register to store the count of each intensity value
   always_ff @(posedge CLK, posedge RST)
     if (RST || state == IDLE) begin
       foreach (frequency[i]) 
         frequency[i] <= 0;
-    end else if (state == FREQUENCY)                           
-      frequency[pixel_value] <= frequency[pixel_value] + 1;
-    else if (state == CUMULATIVE_SUM)                           
-      frequency[intensity] <= frequency[intensity] + frequency[intensity+1];
-    else if (state == SORT)
-      frequency[pixel_value] <= frequency[pixel_value] - 1;
-    else 
-      frequency <= frequency;
-
-  // Register to store the sorted image
-  always_ff @(posedge CLK, posedge RST)
-    if (RST || state == IDLE) begin
       foreach (sorted_image[i]) 
         sorted_image[i] <= 0;
-    end else if (state == SORT)                           
-      sorted_image[frequency[pixel_value] - 1] <= pixelID;
-    else 
+    
+    end else if (state == FREQUENCY) begin
+      pixel_value = IMAGE[pixelID];                          
+      frequency[pixel_value] = frequency[pixel_value] + 1;
+    
+    end else if (state == CUMULATIVE_SUM)                           
+      frequency[intensity] = frequency[intensity] + frequency[intensity+1];
+    
+    else if (state == SORT) begin
+      pixel_value = IMAGE[pixelID];
+      sorted_image[frequency[pixel_value] - 1] = pixelID;
+      frequency[pixel_value] = frequency[pixel_value] - 1;
+    
+    end else begin
       frequency <= frequency;
-
+      sorted_image <= sorted_image;
+    end
   //----------------------------------------------------------------------------
 	//	OUTPUT
 	//----------------------------------------------------------------------------
