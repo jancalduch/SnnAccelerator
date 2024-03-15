@@ -154,12 +154,12 @@ module ROC_encoder2 #(
 	//	COMBINATORIAL LOGIC
 	//----------------------------------------------------------------------------
   // Output value
-    always_comb begin
-      if      (RST)                                   index = 10'b0;
-      else if ((state == IDLE) || aer_reset_cnt < 2)  index = {1'b0,1'b1,8'hFF};
-      else if (state == CHOOSE_VALUE)                 index = {2'b0,sorted_image[pixelID]};
-      else                                            index = index;
-    end
+  always_ff @(posedge CLK, posedge RST) begin
+    if      (RST)                                   index = 10'b0;
+    else if ((state == IDLE) || aer_reset_cnt < 2)  index = {1'b0,1'b1,8'hFF};
+    else if (state == CHOOSE_VALUE)                 index = {2'b0,sorted_image[pixelID]};
+    else                                            index = index;
+  end
   //----------------------------------------------------------------------------
 	//	REGISTERS
 	//----------------------------------------------------------------------------  
