@@ -24,7 +24,7 @@ module ROC_encoder #(
     // From AER
     input logic AERIN_CTRL_BUSY,
 
-    input logic FIRST_INFERENCE_DONE,
+    input logic INFERENCE_RDY,
     
     // Next index sorted (10-bit AER link)
     output logic [9:0] NEXT_INDEX,
@@ -65,33 +65,34 @@ module ROC_encoder #(
 	//----------------------------------------------------------------------------
     
   // State register
-	always @(posedge CLK, posedge RST)
+	always_ff @(posedge CLK, posedge RST)
 	begin
 		if   (RST) state <= IDLE;
 		else       state <= nextstate;
 	end
     
 	// Next state logic
-	always @(*)
+	always_comb begin
     case(state)
 			IDLE:	
-        if (NEW_IMAGE)                                                nextstate = SEND_AER;
-        else                                                          nextstate = IDLE;
+        if (NEW_IMAGE)                                          nextstate = SEND_AER;
+        else                                                    nextstate = IDLE;
 		  SORT: 
-        if (FIRST_INFERENCE_DONE || (indices_sent == IMAGE_SIZE))     nextstate = IDLE;
-        else if (match_found)                                         nextstate = SEND_AER;
-        else                                                          nextstate = SORT; 
-      SEND_AER:                                                       nextstate = WAIT_AER;
+        if (INFERENCE_RDY || (indices_sent == IMAGE_SIZE))      nextstate = IDLE;
+        else if (match_found)                                   nextstate = SEND_AER;
+        else                                                    nextstate = SORT; 
+      SEND_AER:                                                 nextstate = WAIT_AER;
       WAIT_AER: 
         if (!AERIN_CTRL_BUSY)
-          if (aer_reset_cnt < 2)                                      nextstate = SEND_AER;
+          if (aer_reset_cnt < 2)                                nextstate = SEND_AER;
           else
-            if (FIRST_INFERENCE_DONE || (indices_sent == IMAGE_SIZE)) nextstate = IDLE; 
-            else                                                      nextstate = SORT;              
-        else                                                          nextstate = WAIT_AER;
-      default:    							                                      nextstate = IDLE;
+            if (INFERENCE_RDY || (indices_sent == IMAGE_SIZE))  nextstate = IDLE; 
+            else                                                nextstate = SORT;              
+        else                                                    nextstate = WAIT_AER;
+      default:    							                                nextstate = IDLE;
 		endcase
-
+  end
+  
   //----------------------------------------------------------------------------
 	//	COUNTERS
 	//----------------------------------------------------------------------------
