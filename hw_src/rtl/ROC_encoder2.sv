@@ -86,7 +86,7 @@ module ROC_encoder2 #(
         else                                                      nextstate = IDLE;
 		  
       FREQUENCY: 
-        if (pixelID == IMAGE_SIZE)                                nextstate = CUMULATIVE_SUM;
+        if (pixelID == IMAGE_SIZE - 1)                            nextstate = CUMULATIVE_SUM;
         else                                                      nextstate = FREQUENCY;
       
       CUMULATIVE_SUM: 
@@ -98,7 +98,7 @@ module ROC_encoder2 #(
         else                                                      nextstate = SORT; 
     
       CHOOSE_VALUE: 
-        if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))      nextstate = IDLE;
+        if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE - 1))  nextstate = IDLE;
         else                                                      nextstate = SEND_AER;
   
       SEND_AER:                                                   nextstate = WAIT_AER;
@@ -106,8 +106,9 @@ module ROC_encoder2 #(
       WAIT_AER: 
         if (!AERIN_CTRL_BUSY)
           if (aer_reset_cnt < 2)                                  nextstate = SEND_AER;
+          else if (aer_reset_cnt == 2)                            nextstate = FREQUENCY;
           else
-            if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))  nextstate = IDLE; 
+            if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE-1))  nextstate = IDLE; 
             else                                                  nextstate = CHOOSE_VALUE;              
         else                                                      nextstate = WAIT_AER;
       default:    							                                  nextstate = IDLE;
@@ -125,7 +126,7 @@ module ROC_encoder2 #(
     else if (state == IDLE  || ((pixelID == IMAGE_SIZE - 1) && state == SORT)) 
       pixelID <= 0;
     else if (state == FREQUENCY || (!AERIN_CTRL_BUSY && state == CHOOSE_VALUE))                                
-      pixelID <= pixelID + 1;
+      pixelID <= (pixelID == IMAGE_SIZE - 1) ? pixelID : pixelID + 1;
     else if (state == SORT)                                
       pixelID <= pixelID - 1;
     else                                                                              
@@ -136,7 +137,7 @@ module ROC_encoder2 #(
   always_ff @(posedge CLK or posedge RST) begin
     if (RST)                              intensity <= PIXEL_MAX_VALUE;
     else if (state == IDLE)               intensity <= PIXEL_MAX_VALUE;
-    else if (pixelID == IMAGE_SIZE - 1)   intensity <= (intensity == 0) ? intensity: intensity - 1;
+    else if (state == CUMULATIVE_SUM)     intensity <= (intensity == 0) ? intensity: intensity - 1;
     else                                  intensity <= intensity;
   end
 
@@ -157,6 +158,7 @@ module ROC_encoder2 #(
   //----------------------------------------------------------------------------
 	//	REGISTERS
 	//----------------------------------------------------------------------------
+  // Output value
   always_ff @(posedge CLK, posedge RST)
     if      (RST)                                   index <= 10'b0;
     else if ((state == IDLE) || aer_reset_cnt < 2)  index <= {1'b0,1'b1,8'hFF};
@@ -191,7 +193,7 @@ module ROC_encoder2 #(
   //----------------------------------------------------------------------------
 	//	OUTPUT
 	//----------------------------------------------------------------------------
-  assign FOUND_NEXT_INDEX = (state == SORT) || (state == SEND_AER);
+  assign FOUND_NEXT_INDEX = (state == CHOOSE_VALUE) || (state == SEND_AER);
   assign NEXT_INDEX = index;
   assign ENCODER_RDY = (state == IDLE) ? 1'b1: 1'b0;
 
