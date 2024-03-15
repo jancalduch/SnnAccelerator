@@ -24,7 +24,7 @@ module ROC_encoder2 #(
     // From AER
     input logic AERIN_CTRL_BUSY,
 
-    input logic FIRST_INFERENCE_DONE,
+    input logic INFERENCE_RDY,
     
     // Next index sorted (10-bit AER link)
     output logic [9:0] NEXT_INDEX,
@@ -82,36 +82,36 @@ module ROC_encoder2 #(
 	always_comb begin
     case(state)
 			IDLE:	
-        if (NEW_IMAGE)                                            nextstate = SEND_AER;
-        else                                                      nextstate = IDLE;
+        if (NEW_IMAGE)                                    nextstate = SEND_AER;
+        else                                              nextstate = IDLE;
 		  
       FREQUENCY: 
-        if (pixelID == IMAGE_SIZE - 1)                            nextstate = CUMULATIVE_SUM;
-        else                                                      nextstate = FREQUENCY;
+        if (pixelID == IMAGE_SIZE - 1)                    nextstate = CUMULATIVE_SUM;
+        else                                              nextstate = FREQUENCY;
       
       CUMULATIVE_SUM: 
-        if (intensity == 0)                                       nextstate = SORT;
-        else                                                      nextstate = CUMULATIVE_SUM;                        
+        if (intensity == 0)                               nextstate = SORT;
+        else                                              nextstate = CUMULATIVE_SUM;                        
      
       SORT: 
-        if (pixelID == 0)                                         nextstate = CHOOSE_VALUE;
-        else                                                      nextstate = SORT; 
+        if (pixelID == 0)                                 nextstate = CHOOSE_VALUE;
+        else                                              nextstate = SORT; 
     
       CHOOSE_VALUE: 
-        if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))      nextstate = IDLE;
-        else                                                      nextstate = SEND_AER;
+        if (INFERENCE_RDY || (pixelID == IMAGE_SIZE))     nextstate = IDLE;
+        else                                              nextstate = SEND_AER;
   
-      SEND_AER:                                                   nextstate = WAIT_AER;
+      SEND_AER:                                           nextstate = WAIT_AER;
       
       WAIT_AER: 
         if (!AERIN_CTRL_BUSY)
-          if (aer_reset_cnt < 2)                                  nextstate = SEND_AER;
-          else if (aer_reset_cnt == 2)                            nextstate = FREQUENCY;
+          if (aer_reset_cnt < 2)                          nextstate = SEND_AER;
+          else if (aer_reset_cnt == 2)                    nextstate = FREQUENCY;
           else
-            if (FIRST_INFERENCE_DONE || (pixelID == IMAGE_SIZE))  nextstate = IDLE; 
-            else                                                  nextstate = CHOOSE_VALUE;              
-        else                                                      nextstate = WAIT_AER;
-      default:    							                                  nextstate = IDLE;
+            if (INFERENCE_RDY || (pixelID == IMAGE_SIZE)) nextstate = IDLE; 
+            else                                          nextstate = CHOOSE_VALUE;              
+        else                                              nextstate = WAIT_AER;
+      default:    							                          nextstate = IDLE;
 		endcase
   end
 
