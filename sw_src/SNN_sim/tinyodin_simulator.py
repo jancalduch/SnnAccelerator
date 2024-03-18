@@ -21,7 +21,7 @@ import cv2  # Add this import for OpenCV
 # Helper libraries
 import random
 import time
-# from google.colab import files
+from google.colab import files
 
 """# **Get MNIST dataset**"""
 
@@ -369,7 +369,7 @@ def round_images(images):
 def roc_encode(images, randomize_equals):
   # Sort the pixel indexes based on the intensity of each pixel. Brighter
   # pixels go first
-
+  initial_time = time.time()
   # Array with an array of sorted indexes for each image
   roc_images = [0] * len(images)
 
@@ -384,6 +384,11 @@ def roc_encode(images, randomize_equals):
 
     # Store the rank order encoded image into the dataset array
     roc_images[img] = [index for index, _ in sorted_values]
+
+  final_time = time.time()
+
+  print("ROC encoding time for all MNIST images in s is ", (final_time - initial_time))
+  print("Average ROC encoding time for an MNIST image in us is ", 1e6*(final_time - initial_time)/(10000))
 
   return roc_images
 
@@ -533,10 +538,10 @@ def process_all_images(images_to_test, OL_neurons = 10, threshold = 222, show_co
 
   print("Accuracy is "+str(accuracy)+" %")
 
-  print("Average execution time in s is ", total_time)
-  print("Average execution time in us is ", 1000000*total_time/images_to_test)
-  print("Worst execution time in us is ", 1000000*worst_time)
-  print("Best execution time in us is ", 1000000*best_time)
+  print("Total execution time in s is ", total_time)
+  print("Average execution time in us is ", 1e6*total_time/images_to_test)
+  print("Worst execution time in us is ", 1e6*worst_time)
+  print("Best execution time in us is ", 1e6*best_time)
 
   if(show_correct_guesses):
     show_processing_correct_results(correct_guessed_digits)
@@ -662,6 +667,8 @@ threshold_value = 0
 th_type = 'hard'
 randomize_equals = False
 
+initial_time = time.time()
+
 # Resize test images
 resized_test_images = resize_mnist(test_images, algorithm, size=(16, 16))
 
@@ -673,6 +680,11 @@ thresholded_test_images = threshold_images(deskewed_test_images, threshold_value
 
 # Round to integer the test images
 rounded_test_images = round_images(thresholded_test_images)
+
+final_time = time.time()
+
+print("Preprocessing time for all MNIST images in s is ",  final_time - initial_time)
+print("Average preprocessing time for an MNIST image in us is ", 1e6*(final_time - initial_time)/(10000))
 
 # Rank order code the thresholded images
 rank_ordered_test_images = roc_encode(rounded_test_images, randomize_equals)
