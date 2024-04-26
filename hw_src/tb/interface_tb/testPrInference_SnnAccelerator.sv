@@ -4,21 +4,19 @@
 // Created : jais at 2023-10-20
 //====================================================================
 
-program automatic testPrInferenceAll_SnnAccelerator (
+program automatic testPrInference_SnnAccelerator (
   inTest_SnnAccelerator uin_SnnAccelerator
 );
-  
+
   initial begin 
     while (~uin_SnnAccelerator.SPI_config_rdy) wait_ns(1);
 
-    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbStart("completeInference");  
+    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbStart("singleInference");  
+    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("configure registers");
 
     /*****************************************************************************************************************************************************************************************************************/
     /* Program Control Registers for Loading Weights */
     /*****************************************************************************************************************************************************************************************************************/
-    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("program registers");
-    uin_SnnAccelerator.start_time = $time;
-    
     //Disable network operation
     uin_SnnAccelerator.spi_send (.addr({1'b0,1'b0,2'b00,16'd0 }), .data(20'b1                                             ), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK)); //SPI_GATE_ACTIVITY 
     uin_SnnAccelerator.spi_send (.addr({1'b0,1'b0,2'b00,16'd3 }), .data(paTest_SnnAccelerator::SPI_MAX_NEUR               ), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK)); //SPI_MAX_NEUR
@@ -31,10 +29,10 @@ program automatic testPrInferenceAll_SnnAccelerator (
     
     $display("----- Starting verification of programmed SNN control registers");
 
-    assert(u_SnnAccelerator.la_Include.u_Core.spi_slave_0.SPI_GATE_ACTIVITY          ==  1'b1                                             ) else $fatal(0, "SPI_GATE_ACTIVITY parameter not correct.");
-    assert(u_SnnAccelerator.la_Include.u_Core.spi_slave_0.SPI_MAX_NEUR               == paTest_SnnAccelerator::SPI_MAX_NEUR               ) else $fatal(0, "SPI_MAX_NEUR parameter not correct.");
-    assert(u_SnnAccelerator.la_Include.u_Core.spi_slave_0.SPI_OPEN_LOOP              == paTest_SnnAccelerator::SPI_OPEN_LOOP              ) else $fatal(0, "SPI_OPEN_LOOP parameter not correct.");
-    assert(u_SnnAccelerator.la_Include.u_Core.spi_slave_0.SPI_AER_SRC_CTRL_nNEUR     == paTest_SnnAccelerator::SPI_AER_SRC_CTRL_nNEUR     ) else $fatal(0, "SPI_AER_SRC_CTRL_nNEUR parameter not correct.");
+    assert(u_SnnAccelerator.la_Include.u_cop.u_Core.spi_slave_0.SPI_GATE_ACTIVITY          ==  1'b1                                             ) else $fatal(0, "SPI_GATE_ACTIVITY parameter not correct.");
+    assert(u_SnnAccelerator.la_Include.u_cop.u_Core.spi_slave_0.SPI_MAX_NEUR               == paTest_SnnAccelerator::SPI_MAX_NEUR               ) else $fatal(0, "SPI_MAX_NEUR parameter not correct.");
+    assert(u_SnnAccelerator.la_Include.u_cop.u_Core.spi_slave_0.SPI_OPEN_LOOP              == paTest_SnnAccelerator::SPI_OPEN_LOOP              ) else $fatal(0, "SPI_OPEN_LOOP parameter not correct.");
+    assert(u_SnnAccelerator.la_Include.u_cop.u_Core.spi_slave_0.SPI_AER_SRC_CTRL_nNEUR     == paTest_SnnAccelerator::SPI_AER_SRC_CTRL_nNEUR     ) else $fatal(0, "SPI_AER_SRC_CTRL_nNEUR parameter not correct.");
         
     $display("----- Ending verification of programmed SNN control registers, no error found!");
         
@@ -57,7 +55,7 @@ program automatic testPrInferenceAll_SnnAccelerator (
     $display("----- Disabling neurons done...");
 
     $display("----- Starting programming of 10 first neurons in neuron memory in the SNN through SPI.");
-    uin_SnnAccelerator.param_leak_str  = 7'd127;            // Set a leakage higher than the threshold, so a leakage event resets the potential of all neurons
+    uin_SnnAccelerator.param_leak_str  = 7'd0;
     uin_SnnAccelerator.param_thr       = $signed( 12'd222);
     uin_SnnAccelerator.mem_init        = $signed( 12'd0);
     
@@ -73,30 +71,31 @@ program automatic testPrInferenceAll_SnnAccelerator (
     end
     $display("----- Ending programming of 10 first neurons in neuron memory in the SNN through SPI.");
             
-        
-    // Verify neurons
+    /* Verify Neuron memory*/
     if (paTest_SnnAccelerator::VERIFY_NEURON_MEMORY) begin
-      $display("----- Starting verification of neuron memory in the SNN through SPI.");
       nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("verify neurons");
+      $display("----- Starting verification of neuron memory in the SNN through SPI.");
 
       for (uin_SnnAccelerator.i=0; uin_SnnAccelerator.i<paTest_SnnAccelerator::SPI_MAX_NEUR; uin_SnnAccelerator.i=uin_SnnAccelerator.i+1) begin
         for (uin_SnnAccelerator.j=0; uin_SnnAccelerator.j<4; uin_SnnAccelerator.j=uin_SnnAccelerator.j+1) begin
           uin_SnnAccelerator.neur_data       = uin_SnnAccelerator.neuron_pattern >> (uin_SnnAccelerator.j<<3);
           uin_SnnAccelerator.addr_temp[15:8] = uin_SnnAccelerator.j;    // Select a byte
           uin_SnnAccelerator.addr_temp[7:0]  = uin_SnnAccelerator.i;    // Select a word
-
-          uin_SnnAccelerator.spi_read (.addr({1'b1,1'b0,2'b01,uin_SnnAccelerator.addr_temp[15:0]}), .data(uin_SnnAccelerator.spi_read_data), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK)); 
+          uin_SnnAccelerator.spi_read (.addr({1'b1,1'b0,2'b01,uin_SnnAccelerator.addr_temp[15:0]}), .data(uin_SnnAccelerator.spi_read_data), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK));
+          // $display("----- Should have read %d and got %d", uin_SnnAccelerator.neur_data[7:0], uin_SnnAccelerator.spi_read_data); 
           assert(uin_SnnAccelerator.spi_read_data == {12'b0,uin_SnnAccelerator.neur_data[7:0]}) else $fatal(0, "Byte %d of neuron %d not written/read correctly.", uin_SnnAccelerator.j, uin_SnnAccelerator.i);
         end
       end
       $display("----- Ending verification of neuron memory in the SNN through SPI, no error found!");
     end else
       $display("----- Skipping verification of neuron memory in the SNN through SPI.");
-        
-        
+
+    // $stop;  
+
     /*****************************************************************************************************************************************************************************************************************/
     /* Program Synapse Memory */
     /*****************************************************************************************************************************************************************************************************************/
+
     uin_SnnAccelerator.file_name = "/pro/sig_research/AI/work/jais/sproject/SnnAccelerator_top/projects/student/SnnAccelerator/sim/tb/weights.txt";
     uin_SnnAccelerator.parese_weights(uin_SnnAccelerator.file_name, 256, 10);
 
@@ -113,8 +112,8 @@ program automatic testPrInferenceAll_SnnAccelerator (
                                           29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,
                                           4,3,2,1,0};
     // Programming synapses
-    $display("----- Starting programmation of 256x10 synapses in the SNN through SPI.");
     nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("program synapses");
+    $display("----- Starting programmation of 256x10 synapses in the SNN through SPI.");
     for (uin_SnnAccelerator.i=0; uin_SnnAccelerator.i<paTest_SnnAccelerator::SPI_MAX_NEUR-1; uin_SnnAccelerator.i=uin_SnnAccelerator.i+2) begin
       for (uin_SnnAccelerator.j=0; uin_SnnAccelerator.j<paTest_SnnAccelerator::N; uin_SnnAccelerator.j=uin_SnnAccelerator.j+1) begin
 
@@ -126,21 +125,19 @@ program automatic testPrInferenceAll_SnnAccelerator (
       end
     end
     $display("----- Ending programmation of 256x10 synapses in the SNN through SPI.");
-    uin_SnnAccelerator.end_time = $time;
 
-    uin_SnnAccelerator.execution_time = uin_SnnAccelerator.end_time - uin_SnnAccelerator.start_time;
-    $display("----- Programming execution time is %.4f ms", uin_SnnAccelerator.execution_time/1000000.0);
-
-    // Verify synapse memory
+            
+    /* Verify Synapse Memory */
     if (paTest_SnnAccelerator::VERIFY_ALL_SYNAPSES) begin
-      $display("----- Starting verification of 256x10 synapses in the SNN through SPI.");
       nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("verify synapses");
+      $display("----- Starting verification of 256x10 synapses in the SNN through SPI.");
       for (uin_SnnAccelerator.i=0; uin_SnnAccelerator.i<paTest_SnnAccelerator::SPI_MAX_NEUR-1; uin_SnnAccelerator.i=uin_SnnAccelerator.i+2) begin
         for (uin_SnnAccelerator.j=0; uin_SnnAccelerator.j<paTest_SnnAccelerator::N; uin_SnnAccelerator.j=uin_SnnAccelerator.j+1) begin
           uin_SnnAccelerator.addr_temp[ 12:5] = uin_SnnAccelerator.input_neurons[uin_SnnAccelerator.j][7:0];    // Choose word
           uin_SnnAccelerator.addr_temp[  4:0] = uin_SnnAccelerator.target_neurons[uin_SnnAccelerator.i][7:3];   // Choose word
           uin_SnnAccelerator.addr_temp[14:13] = uin_SnnAccelerator.target_neurons[uin_SnnAccelerator.i][2:1];   // Choose byte
           uin_SnnAccelerator.spi_read (.addr({1'b1,1'b0,2'b10,uin_SnnAccelerator.addr_temp[15:0]}), .data(uin_SnnAccelerator.spi_read_data), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK)); 
+          // $display("----- Should have read %d and got %d", {uin_SnnAccelerator.weights[uin_SnnAccelerator.j][uin_SnnAccelerator.i+1][3:0], uin_SnnAccelerator.weights[uin_SnnAccelerator.j][uin_SnnAccelerator.i][3:0]}, uin_SnnAccelerator.spi_read_data); 
           assert(uin_SnnAccelerator.spi_read_data == {12'b0,{uin_SnnAccelerator.weights[uin_SnnAccelerator.j][uin_SnnAccelerator.i+1][3:0], uin_SnnAccelerator.weights[uin_SnnAccelerator.j][uin_SnnAccelerator.i][3:0]}}) else $fatal(0, "Byte %d of address %d not written/read correctly.", uin_SnnAccelerator.j, uin_SnnAccelerator.i);
         end
       end
@@ -148,125 +145,75 @@ program automatic testPrInferenceAll_SnnAccelerator (
     end else
       $display("----- Skipping verification of 256x10 synapses in the SNN through SPI.");
 
-    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("Finished programming");
       
     /*****************************************************************************************************************************************************************************************************************/
     /* Inference */
     /*****************************************************************************************************************************************************************************************************************/
-    
-    //Start getting output AER evenst and don't monitor output spikes in the console
-    uin_SnnAccelerator.auto_ack_verbose = 1'b0;
-    fork
-      uin_SnnAccelerator.auto_ack(.req(uin_SnnAccelerator.AEROUT_REQ), .ack(uin_SnnAccelerator.AEROUT_ACK), .addr(uin_SnnAccelerator.AEROUT_ADDR), .neur(uin_SnnAccelerator.aer_neur_spk), .verbose(uin_SnnAccelerator.auto_ack_verbose), .spike(uin_SnnAccelerator.spiked));
-    join_none
-
-    uin_SnnAccelerator.images_to_test = 10000;
-    // Get test_lables and convert from ASCII char to int
-    uin_SnnAccelerator.file_name = "/pro/sig_research/AI/work/jais/sproject/SnnAccelerator_top/projects/student/SnnAccelerator/sim/tb/test_labels.txt";
-    uin_SnnAccelerator.parese_digits(.file_name (uin_SnnAccelerator.file_name), .digit_number(uin_SnnAccelerator.images_to_test));
-
-    // Get Rank Order encoded data 
-    
-    uin_SnnAccelerator.file_name = "/pro/sig_research/AI/work/jais/sproject/SnnAccelerator_top/projects/student/SnnAccelerator/sim/tb/roc_test_images.txt";
-    uin_SnnAccelerator.parese_roc_images(.file_name(uin_SnnAccelerator.file_name), .array_number(uin_SnnAccelerator.images_to_test), .array_depth(256));
-    
-    // --------------------------------------------------------------------------------- Do inference for all images in MNIST dataset ------------------------------------------
-
-    uin_SnnAccelerator.best_time = 64'd1000000000000;
-    uin_SnnAccelerator.worst_time = 0;
-    uin_SnnAccelerator.total_time = 0;
 
     //Re-enable network operation 
     uin_SnnAccelerator.spi_send (.addr({1'b0,1'b0,2'b00,16'd0}), .data(20'd0), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK)); //SPI_GATE_ACTIVITY (0)
-    
-    $display("----- Starting inference of all images");
+
+    if (paTest_SnnAccelerator::DO_CLOSED_LOOP) begin
+      uin_SnnAccelerator.spi_send (.addr({1'b0,1'b0,2'b00,16'd1}), .data(20'b0), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK)); //SPI_OPEN_LOOP (0)
+    end
+
+    $display("----- Starting inference of a single image");
+
+    // IMAGE to send
+    uin_SnnAccelerator.IMAGE = '{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 32, 81, 1, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 38, 174, 244, 101, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 53, 187, 
+    243, 239, 190, 75, 2, 0, 0, 0, 0, 0, 0, 0, 0, 25, 185, 111, 98, 219, 222, 
+    71, 6, 0, 0, 0, 0, 0, 0, 0, 26, 120, 127, 20, 100, 228, 149, 27, 0, 0, 0, 0, 
+    0, 0, 0, 0, 24, 214, 163, 183, 192, 227, 120, 0, 0, 0, 0, 0, 0, 0, 0, 1, 55, 
+    164, 188, 83, 82, 170, 104, 12, 0, 0, 0, 0, 0, 0, 0, 1, 10, 35, 17, 4, 51, 
+    185, 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 63, 180, 77, 4, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 3, 50, 159, 98, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+    24, 174, 64, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 45, 97, 38, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
     nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("start inference");
 
-    uin_SnnAccelerator.total_correct_guesses = 0;
-    for (uin_SnnAccelerator.img = 0; uin_SnnAccelerator.img < uin_SnnAccelerator.images_to_test; uin_SnnAccelerator.img = uin_SnnAccelerator.img + 1) begin
-      
-      uin_SnnAccelerator.start_time = $time;
+    // -----------------------------
+    // -- SEND DATA
+    // -----------------------------
 
-      // Send two leakage event to all neurons to reset their potential (each event decreases 127 as leakage is 7 bits)
-      uin_SnnAccelerator.aer_send (.addr_in({1'b0,1'b1,8'hFF}), .addr_out(uin_SnnAccelerator.AERIN_ADDR), .ack(uin_SnnAccelerator.AERIN_ACK), .req(uin_SnnAccelerator.AERIN_REQ));
-      uin_SnnAccelerator.aer_send (.addr_in({1'b0,1'b1,8'hFF}), .addr_out(uin_SnnAccelerator.AERIN_ADDR), .ack(uin_SnnAccelerator.AERIN_ACK), .req(uin_SnnAccelerator.AERIN_REQ));
-
-      // Perform inference of one image until the first OL neuron spikes
-      fork
-        uin_SnnAccelerator.detect_spike_update_metrics(.spiked(uin_SnnAccelerator.spiked), .first_spike(uin_SnnAccelerator.first_spike), .img(uin_SnnAccelerator.img));
-      join_none
-
-      uin_SnnAccelerator.rank_order = uin_SnnAccelerator.roc_test_images[uin_SnnAccelerator.img];
-      for (uin_SnnAccelerator.j=0; uin_SnnAccelerator.j<paTest_SnnAccelerator::N; uin_SnnAccelerator.j=uin_SnnAccelerator.j+1) begin
-        uin_SnnAccelerator.aer_send (.addr_in({1'b0,1'b0,uin_SnnAccelerator.rank_order[uin_SnnAccelerator.j][7:0]}), .addr_out(uin_SnnAccelerator.AERIN_ADDR), .ack(uin_SnnAccelerator.AERIN_ACK), .req(uin_SnnAccelerator.AERIN_REQ));
-        if (uin_SnnAccelerator.first_spike) begin
-          uin_SnnAccelerator.end_time = $time;
-          uin_SnnAccelerator.execution_time = uin_SnnAccelerator.end_time - uin_SnnAccelerator.start_time;
-          uin_SnnAccelerator.time_array[uin_SnnAccelerator.img] = uin_SnnAccelerator.execution_time;
-
-          if (uin_SnnAccelerator.execution_time > uin_SnnAccelerator.worst_time) begin 
-            uin_SnnAccelerator.worst_time = uin_SnnAccelerator.execution_time;
-            uin_SnnAccelerator.worst_time_image = uin_SnnAccelerator.img; 
-          end
-          if (uin_SnnAccelerator.execution_time < uin_SnnAccelerator.best_time) begin 
-            uin_SnnAccelerator.best_time = uin_SnnAccelerator.execution_time;
-            uin_SnnAccelerator.best_time_image = uin_SnnAccelerator.img;
-          end
-          uin_SnnAccelerator.total_time = uin_SnnAccelerator.total_time + uin_SnnAccelerator.execution_time;
-
-          break;
-        end
-      end
-
-      // Perform inference of one image
-      // uin_SnnAccelerator.rank_order = uin_SnnAccelerator.roc_test_images[uin_SnnAccelerator.img];
-      // for (uin_SnnAccelerator.j=0; uin_SnnAccelerator.j<paTest_SnnAccelerator::N; uin_SnnAccelerator.j=uin_SnnAccelerator.j+1) begin
-      //   uin_SnnAccelerator.spiked = 1'b0;
-      //   uin_SnnAccelerator.aer_send (.addr_in({1'b0,1'b0,uin_SnnAccelerator.rank_order[uin_SnnAccelerator.j][7:0]}), .addr_out(uin_SnnAccelerator.AERIN_ADDR), .ack(uin_SnnAccelerator.AERIN_ACK), .req(uin_SnnAccelerator.AERIN_REQ));
-      //   wait_ns(100);
-      //   if (uin_SnnAccelerator.spiked) begin
-      //     // $display("----- Digit should be %d and received %d", uin_SnnAccelerator.test_labels[uin_SnnAccelerator.img], uin_SnnAccelerator.aer_neur_spk); 
-      //     if (uin_SnnAccelerator.aer_neur_spk==uin_SnnAccelerator.test_labels[uin_SnnAccelerator.img]) begin
-      //       uin_SnnAccelerator.total_correct_guesses += 1;
-      //     end else
-      //       // $display("----- Indexed that failed is: %d", uin_SnnAccelerator.img);
-          
-      //     break;
-      //   end
-      // end
-
-      if (uin_SnnAccelerator.img % 1000 == 0) $display("."); 
-
+    // Send image through AXI byte by byte
+    for (int address = 0; address < paTest_SnnAccelerator::IMAGE_SIZE; address++) begin
+      uin_SnnAccelerator.axi4l_write(address, uin_SnnAccelerator.IMAGE[address]);
     end
+    // Notify that image is fully sent
+    uin_SnnAccelerator.axi4l_write(256, 1);
+    uin_SnnAccelerator.axi4l_write(256, 0);
     
-    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("finish inference");
-    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbStop();
+    // -----------------------------
+    // -- READ DATA
+    // -----------------------------
+    // Wait for interrupt and then read data
+    wait(uin_SnnAccelerator.COPROCESSOR_RDY);
+    uin_SnnAccelerator.axi4l_read(5, uin_SnnAccelerator.read_data);
+    
+    $display("INFERED DIGIT IS %d and should be 9.", uin_SnnAccelerator.read_data[7:0]);
 
-    uin_SnnAccelerator.accuracy = real'(uin_SnnAccelerator.total_correct_guesses)*(100.0/real'(uin_SnnAccelerator.images_to_test)); 
-    $display("----- Inference finished with a %.2f %% Accuracy!", uin_SnnAccelerator.accuracy); 
- 
-    uin_SnnAccelerator.average_time = uin_SnnAccelerator.total_time/(1000.0*real'(uin_SnnAccelerator.images_to_test));
-    $display("----- Average execution time is %.4f us", uin_SnnAccelerator.average_time);
-    $display("----- Best execution time is image %d with %.4f us", uin_SnnAccelerator.best_time_image, (uin_SnnAccelerator.best_time/1000.0));
-    $display("----- Worst execution time is image %d with %.4f us", uin_SnnAccelerator.worst_time_image, (uin_SnnAccelerator.worst_time/1000.0));
-     
-    uin_SnnAccelerator.time_array.sort();
-    $display("----- Median execution time is %.4f us", (uin_SnnAccelerator.time_array[5000]/1000.0));
+    uin_SnnAccelerator.read_data = 32'h0;
+
+    $display("----- Test Finished"); 
+    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbStop();
     wait_ns(500);
     $finish;
         
   end
+
 
   // -----------------------------
   // -- Tasks
   // -----------------------------
 
   // SIMPLE TIME-HANDLING TASKS
-	task wait_ns;
+  task wait_ns;
     input   tics_ns;
     integer tics_ns;
     #tics_ns;
   endtask
-
 endprogram
-
