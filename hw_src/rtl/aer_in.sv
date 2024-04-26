@@ -28,7 +28,7 @@ module aer_in #(
   wire           AERIN_ACK_sync_negedge;
   
   // Sync barrier
-  always @(posedge CLK, posedge RST) begin
+  always_ff @(posedge CLK, posedge RST) begin
     if (RST) begin
       AERIN_ACK_sync_int <= 1'b0;
       AERIN_ACK_sync	    <= 1'b0;
@@ -45,7 +45,7 @@ module aer_in #(
     
     
   // Input AER interface
-  always @(posedge CLK, posedge RST) begin
+  always_ff @(posedge CLK, posedge RST) begin
     if (RST) begin
       AERIN_ADDR             <= 10'b0;
       AERIN_REQ              <= 1'b0;

@@ -1,17 +1,53 @@
-/* Slave Interface for AXI4-Lite.
-  Write Registers:
-    0-255:  image_data
-    256:    image_fully_received
-  Read Registers:
-    0:      infered_data
-*/
+////////////////////////////////////////////////////////////////////////////////
+//
+// Filename: 	easyaxil
+// {{{
+// Project:	WB2AXIPSP: bus bridges and other odds and ends
+//
+// Purpose:	Demonstrates a simple AXI-Lite interface.
+//
+//	This was written in light of my last demonstrator, for which others
+//	declared that it was much too complicated to understand.  The goal of
+//	this demonstrator is to have logic that's easier to understand, use,
+//	and copy as needed.
+//
+//	Since there are two basic approaches to AXI-lite signaling, both with
+//	and without skidbuffers, this example demonstrates both so that the
+//	differences can be compared and contrasted.
+//
+// Creator:	Dan Gisselquist, Ph.D.
+//		Gisselquist Technology, LLC
+//
+////////////////////////////////////////////////////////////////////////////////
+// }}}
+// Copyright (C) 2020-2024, Gisselquist Technology, LLC
+// {{{
+//
+// This file is part of the WB2AXIP project.
+//
+// The WB2AXIP project contains free software and gateware, licensed under the
+// Apache License, Version 2.0 (the "License").  You may not use this project,
+// or this file, except in compliance with the License.  You may obtain a copy
+// of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+// License for the specific language governing permissions and limitations
+// under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
+//
+
 
 module S_AXI4l_interface #(
   parameter integer N               = 256,    // Maximum number of neurons
   parameter integer M               = 8,      // log2(N)
 
   parameter integer AXI_DATA_WIDTH  = 32,     // Width of S_AXI data bus
-  parameter integer AXI_ADDR_WIDTH  = 32,     // Width of S_AXI address bus
+  parameter integer AXI_ADDR_WIDTH  = 32,      // Width of S_AXI address bus
   
   parameter integer IMAGE_SIZE      = 256,
   parameter integer IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
@@ -59,88 +95,169 @@ module S_AXI4l_interface #(
 );
 
   //----------------------------------------------------------------------------
-  //  LOGIC
+  //  LOGIC Declarations
   //----------------------------------------------------------------------------
 
   // Registers
-  logic [PIXEL_BITS-1:0] image_data [0:IMAGE_SIZE-1];   // 256 8-bit pixel values
-  logic [AXI_DATA_WIDTH-1:0] image_fully_received;      // Flag to indicate all pixels have been received
-  logic [AXI_DATA_WIDTH-1:0] infered_data;              // Infered digit from SNN
-
-  // Write
-  logic [AXI_ADDR_WIDTH-1:0] write_address;
-  logic [AXI_DATA_WIDTH-1:0] write_data;
-  logic [AXI_DATA_WIDTH/8-1:0] strb;
-
-  logic axi_wready;              // Indicate we want to write to a register
-  logic axi_awready;
-  logic axi_bvalid;
-
-  // Read
-  logic [AXI_ADDR_WIDTH-1:0] read_address;
-  logic axi_rvalid;
-  logic axi_arready;
-
-  //----------------------------------------------------------------------------
-  //  SEQUENTIAL LOGIC
-  //----------------------------------------------------------------------------
-  // Complete address and data write handshake
-  always_ff @(posedge ACLK)
-    if (!ARESETN) axi_awready <= 1'b0;
-    else          axi_awready <= !axi_awready && (AWVALID && WVALID) && (!BVALID || BREADY);
+  logic [PIXEL_BITS-1:0]      image_data [0:IMAGE_SIZE-1];   // 256 8-bit pixel values
+  logic [AXI_DATA_WIDTH-1:0]  image_fully_received;      // Flag to indicate all pixels have been received
+  logic [AXI_DATA_WIDTH-1:0]  infered_data;              // Infered digit from SNN and COP_RDY flag
   
-  // Store Write data into registers
+  // AXI4-Lite signals
+  logic                       axi_awready;
+  logic                       axi_wready;
+  logic                       axi_bvalid;
+
+  logic                       axi_arready;
+  logic [AXI_DATA_WIDTH-1:0]  axi_rdata;
+  logic                       axi_rvalid;
+
+  // Helper logic
+  logic valid_write_address, valid_write_data, write_response_stall;
+  logic [AXI_ADDR_WIDTH-1:0]      pre_waddr, waddr;
+  logic [AXI_DATA_WIDTH-1:0]      pre_wdata, wdata;
+  logic [(AXI_DATA_WIDTH/8)-1:0]  pre_wstrb, wstrb;
+
+  logic valid_read_request, read_response_stall;
+  logic [AXI_ADDR_WIDTH-1:0]      pre_raddr, rd_addr;
+
+  //----------------------------------------------------------------------------
+  //  WRITE LOGIC
+  //----------------------------------------------------------------------------
+  assign valid_write_address  = AWVALID || !axi_awready;
+  assign valid_write_data     = WVALID  || !axi_wready;
+  assign write_response_stall = BVALID  && !BREADY;
+
+  /* Write address ready handshake:
+    If the output channel is stalled, we remain stalled if the buffer is full
+    or if the buffer is empty and there is a request.
+    Assert ready if the output channel is clear and write data are available.
+    If we were ready before, remain ready unless an address unaccompanied by data shows up.
+  */
+  always_ff @(posedge ACLK)
+  if (!ARESETN)                   axi_awready <= 1'b1;
+  else if (write_response_stall)  axi_awready <= !valid_write_address;
+  else if (valid_write_data)      axi_awready <= 1'b1;
+  else                            axi_awready <= (axi_awready && !AWVALID); // axi_awready <= !valid_write_address
+
+  /* Write data ready handshake:
+    If the output channel is stalled, we remain stalled until valid write data shows up.
+    Assert ready if the output channel is clear, and a write address is available.
+    If we were ready before, remain ready unless there's new data avaialble to cause us to stall
+  */
+  always_ff @(posedge ACLK)
+  if (!ARESETN)                   axi_wready <= 1'b1;
+  else if (write_response_stall)  axi_wready <= !valid_write_data;
+  else if (valid_write_address)   axi_wready <= 1'b1;
+  else                            axi_wready <= (axi_wready && !WVALID);  // axi_wready <= !valid_write_data
+
+  /* Buffer address, data and strobe, and then write:
+    Write the data if the output channel isn't stalled, we have a valid 
+    address, and we have valid data.
+  */
+  
+  // Buffer the address, data and strobe
+  always_ff @(posedge ACLK)
+  if (!ARESETN)     pre_waddr <= 0;
+  else if (AWREADY) pre_waddr <= AWADDR;
+
+  always_ff @(posedge ACLK)
+  if (!ARESETN) begin
+    pre_wdata <= 0;
+    pre_wstrb <= 0;
+  end else if (WREADY) begin
+    pre_wdata <= WDATA;
+    pre_wstrb <= WSTRB;
+  end
+
+  // Read the write address, data and strobe from our "buffers"
+  always_comb waddr = (!axi_awready)  ? pre_waddr : AWADDR;
+  always_comb wdata = (!axi_wready)   ? pre_wdata : WDATA;
+  always_comb wstrb = (!axi_wready)   ? pre_wstrb : WSTRB;
+
+  // Write the data into registers
   always_ff @(posedge ACLK) begin
     if (!ARESETN) begin
-      image_fully_received            <= 32'b0;
+      image_fully_received    <= 32'b0;
       foreach (image_data[i])
-        image_data[i]                 <= 0;
-    end else if (axi_wready) begin
-      if (write_address < 256)
-        image_data[write_address]   <= apply_wstrb(image_data[write_address], write_data, strb);
+        image_data[i]         <= 0;
+    end else if (!write_response_stall && valid_write_address && valid_write_data) begin
+      if (waddr < 256)
+        image_data[waddr]     <= wdata[7:0];
       else
-        image_fully_received        <= apply_wstrb(image_fully_received, write_data, strb);
+        image_fully_received  <= apply_wstrb(image_fully_received, wdata, wstrb);
     end
   end
 
-  // BVALID set following any successful write to the SNN coprocessor
-  always_ff @(posedge ACLK)
-    if (!ARESETN)         axi_bvalid <= 0;
-    else if (axi_wready)  axi_bvalid <= 1;
-    else if (BREADY)      axi_bvalid <= 0;
-
-  // Read data from registers
-  always_ff @(posedge ACLK)
-    if (!ARESETN || image_fully_received) infered_data <= 32'b0;
-    else if (!axi_rvalid || RREADY)       infered_data <= {24'b0, INFERED_DIGIT};
-
-  // Complete read handshake
-  always_ff @(posedge ACLK)
-    if (!ARESETN)                 axi_rvalid <= 1'b0;
-    else if (ARVALID && ARREADY)  axi_rvalid <= 1'b1;
-    else if (RREADY)              axi_rvalid <= 1'b0;   
-  //----------------------------------------------------------------------------
-  //  COMBINATORIAL LOGIC
-  //----------------------------------------------------------------------------
-  assign axi_wready       = axi_awready;
-  assign write_address    = AWADDR[8:0];
-  assign write_data       = WDATA;
-  assign strb             = WSTRB;
-
-  assign read_address     = ARADDR[8:0];
-  always_comb axi_arready = !axi_rvalid;
+  /* Write response valid handshake:
+    Indicate a valid write if we have a valid address and we had valid data.
+    No matter if we are stalled, keeo setting hte ready signal as often as we want.
+    If BREADY was true, then it was just accepted and can return to idle.
+  */
+  always_ff @(posedge ACLK )
+  if (!ARESETN)                                       axi_bvalid <= 1'b0;
+  else if (valid_write_address && valid_write_data)   axi_bvalid <= 1'b1;
+  else if (BREADY)                                    axi_bvalid <= 1'b0;
 
   //----------------------------------------------------------------------------
-  //  OUTPUT
+  //  READ LOGIC
+  //----------------------------------------------------------------------------
+  assign valid_read_request   = ARVALID || !ARREADY;
+  assign read_response_stall  = RVALID  && !RREADY;
+
+  assign infered_data = {24'b0, INFERED_DIGIT};
+
+  /* Read data valid handshake:
+    Need to stay valid as long as the return path is stalled
+    When the stall has cleared we can always clear the valid signal
+  */
+  always_ff @(posedge ACLK )
+  if (!ARESETN)
+    axi_rvalid <= 0;
+  else if (read_response_stall)
+    axi_rvalid <= 1'b1;
+  else if (valid_read_request)
+    axi_rvalid <= 1'b1;
+  else
+    axi_rvalid <= 1'b0;
+
+  /* Buffer address and read data:
+    Buffer the addres and read data if the outgoing channel is not stalled
+  */
+  // Buffer the address
+  always_ff @(posedge ACLK)
+  if (!ARESETN)     pre_raddr <= 0;
+  else if (ARREADY) pre_raddr <= ARADDR;
+
+  // Read the read address from our "buffer"
+  always_comb rd_addr = (!axi_arready) ? pre_raddr : ARADDR;
+
+  // Put the data on the read channel if the channel isn't stalled and we have valid address
+  always_ff @(posedge ACLK)
+  if (!ARESETN)                                         axi_rdata <= 0;
+  else if (!read_response_stall && valid_read_request)  axi_rdata <= infered_data;  // (!OPT_READ_SIDEEFFECTS || valid_read_request)
+
+
+  /* Read address ready handshake:
+    If the outgoing channel is stalled and there is something in the buffer, 
+    axi_arready needs to stay low
+  */
+  always_ff @(posedge ACLK)
+  if (!ARESETN)                   axi_arready <= 1'b1;
+  else if (read_response_stall)   axi_arready <= !valid_read_request;
+  else                            axi_arready <= 1'b1;
+
+  //----------------------------------------------------------------------------
+  //  OUTPUT CONNECTIONS
   //----------------------------------------------------------------------------
   assign AWREADY    = axi_awready;
   assign WREADY     = axi_wready;
-  assign BRESP      = 2'b00;                      // Assume no error
+  assign BRESP      = 2'b00;        // The OKAY response
   assign BVALID     = axi_bvalid;
 
   assign ARREADY    = axi_arready;
-  assign RDATA      = infered_data;
-  assign RRESP      = 2'b00;       // Assume no error
+  assign RDATA      = axi_rdata;
+  assign RRESP      = 2'b00;        // The OKAY response
   assign RVALID     = axi_rvalid;
 
   assign IMAGE      = image_data;

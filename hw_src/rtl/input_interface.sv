@@ -13,7 +13,7 @@ module input_interface #(
     input logic NEW_IMAGE,
        
     // Control signal
-    input logic FIRST_INFERENCE_DONE,
+    input logic INFERENCE_RDY,
     
     // Image sorted
     output logic ENCODER_RDY,
@@ -38,12 +38,13 @@ module input_interface #(
   //----------------------------------------------------------------------------
   
   // encoder
+  // encoder_buffer #(
   ROC_encoder #(
     IMAGE_SIZE,
     IMAGE_SIZE_BITS,
     PIXEL_MAX_VALUE,
     PIXEL_BITS
-  ) u_ROC_encoder (
+  ) u_encoder (
     // Global input
     .CLK                  ( CLK                   ),
     .RST                  ( RST                   ),
@@ -52,7 +53,7 @@ module input_interface #(
     .IMAGE                ( IMAGE                 ),
     .NEW_IMAGE            ( NEW_IMAGE             ),
 
-    .FIRST_INFERENCE_DONE ( FIRST_INFERENCE_DONE  ),
+    .INFERENCE_RDY        ( INFERENCE_RDY         ),
     
     // From AER
     .AERIN_CTRL_BUSY      ( AERIN_CTRL_BUSY       ),

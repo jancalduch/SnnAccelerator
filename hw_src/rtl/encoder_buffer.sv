@@ -1,13 +1,11 @@
 //------------------------------------------------------------------------------
 //
-// "ROC_encoder.sv" - Module that outputs the indexes of pixel values based on the 
-//              intensity of the input image. The brighter the pixel the earlier
-//              it goes. My 1st implementation, slower but less area.
+// "encoder_buffer.sv" - Module that chooses the next value to send to the AER.
 //
 //------------------------------------------------------------------------------
 
 
-module ROC_encoder2 #(
+module encoder_buffer #(
 	parameter IMAGE_SIZE      = 256,
   parameter IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),
   parameter PIXEL_MAX_VALUE = 255,
@@ -40,7 +38,7 @@ module ROC_encoder2 #(
 	// FSM states 
   typedef enum logic [3:0] {
     IDLE,
-    SORT,
+    CHOOSE_VALUE,
     SEND_AER,
     WAIT_AER
   } state_t;
@@ -49,24 +47,20 @@ module ROC_encoder2 #(
   //	LOGIC
   //----------------------------------------------------------------------------
   state_t state, nextstate;  
-
+  
+  // Counters
   logic [IMAGE_SIZE_BITS-1:0] pixelID;
-  logic [PIXEL_BITS-1:0] intensity;
-  logic [IMAGE_SIZE_BITS:0] indices_sent;
   logic [1:0] aer_reset_cnt;
 
-  // AER is 10 bits
-  logic [9:0] index;
-  logic match_found;
-
+  // Combinatorial wires
+  logic [9:0] index;  // AER is 10 bits
 
   //----------------------------------------------------------------------------
 	//	CONTROL FSM
 	//----------------------------------------------------------------------------
     
   // State register
-	always_ff @(posedge CLK, posedge RST)
-	begin
+	always_ff @(posedge CLK, posedge RST) begin
 		if   (RST) state <= IDLE;
 		else       state <= nextstate;
 	end
@@ -75,42 +69,40 @@ module ROC_encoder2 #(
 	always_comb begin
     case(state)
 			IDLE:	
-        if (NEW_IMAGE)                                          nextstate = SEND_AER;
-        else                                                    nextstate = IDLE;
-		  SORT: 
-        if (INFERENCE_RDY || (indices_sent == IMAGE_SIZE))      nextstate = IDLE;
-        else if (match_found)                                   nextstate = SEND_AER;
-        else                                                    nextstate = SORT; 
-      SEND_AER:                                                 nextstate = WAIT_AER;
+        if (NEW_IMAGE)                                    nextstate = SEND_AER;
+        else                                              nextstate = IDLE;
+    
+      CHOOSE_VALUE: 
+        if (INFERENCE_RDY || (pixelID == IMAGE_SIZE))     nextstate = IDLE;
+        else                                              nextstate = SEND_AER;
+  
+      SEND_AER:                                           nextstate = WAIT_AER;
+      
       WAIT_AER: 
         if (!AERIN_CTRL_BUSY)
-          if (aer_reset_cnt < 2)                                nextstate = SEND_AER;
+          if (aer_reset_cnt < 2)                          nextstate = SEND_AER;
           else
-            if (INFERENCE_RDY || (indices_sent == IMAGE_SIZE))  nextstate = IDLE; 
-            else                                                nextstate = SORT;              
-        else                                                    nextstate = WAIT_AER;
-      default:    							                                nextstate = IDLE;
+            if (INFERENCE_RDY || (pixelID == IMAGE_SIZE)) nextstate = IDLE; 
+            else                                          nextstate = CHOOSE_VALUE;              
+        else                                              nextstate = WAIT_AER;
+      default:    							                          nextstate = IDLE;
 		endcase
   end
-  
+
   //----------------------------------------------------------------------------
 	//	COUNTERS
 	//----------------------------------------------------------------------------
 
-  // Counter up for pixel_ID
+  // Counter up for pixelID
   always_ff @(posedge CLK or posedge RST) begin
-    if (RST)                                                                        pixelID <= 0;
-    else if (state == IDLE  || ((pixelID == IMAGE_SIZE - 1) && (state == SORT)))    pixelID <= 0;
-    else if (!AERIN_CTRL_BUSY && (state == SORT))                                   pixelID <= pixelID + 1;
-    else                                                                            pixelID <= pixelID;
-  end
-
-  // Counter down for intensity
-  always_ff @(posedge CLK or posedge RST) begin
-    if (RST)                              intensity <= PIXEL_MAX_VALUE;
-    else if (state == IDLE)               intensity <= PIXEL_MAX_VALUE;
-    else if (pixelID == IMAGE_SIZE - 1)   intensity <= (intensity == 0) ? intensity: intensity - 1;
-    else                                  intensity <= intensity;
+    if (RST)                                                                          
+      pixelID <= 0;
+    else if (state == IDLE) 
+      pixelID <= 0;
+    else if (!AERIN_CTRL_BUSY && state == CHOOSE_VALUE)                                
+      pixelID <= (pixelID == IMAGE_SIZE) ? pixelID : pixelID + 1;
+    else                                                                              
+      pixelID <= pixelID;
   end
 
   // Counter up for aer rst sequence
@@ -119,35 +111,25 @@ module ROC_encoder2 #(
     else if (state == IDLE)         aer_reset_cnt <= 0;
     else if (state == SEND_AER)     aer_reset_cnt <= (aer_reset_cnt == 3) ? aer_reset_cnt: aer_reset_cnt + 1;
     else                            aer_reset_cnt <= aer_reset_cnt;
-
-  // Counter up for sent values
-  always_ff @(posedge CLK or posedge RST) begin
-    if (RST)                                indices_sent <= 0;
-    else if (state == IDLE)                 indices_sent <= 0;
-    else if (match_found && state == SORT)  indices_sent <= indices_sent + 1;
-    else                                    indices_sent <= indices_sent;   
-  end
  
   //----------------------------------------------------------------------------
-	//	COMPARATOR
+	//	COMBINATORIAL LOGIC
 	//----------------------------------------------------------------------------
-  always_comb begin
-    match_found = (IMAGE[pixelID] == intensity);
-  end
-
+  
   //----------------------------------------------------------------------------
 	//	REGISTERS
-	//----------------------------------------------------------------------------
-  always_ff @(posedge CLK, posedge RST)
+	//----------------------------------------------------------------------------  
+  // Output value
+  always_ff @(posedge CLK, posedge RST) begin
     if      (RST)                                   index <= 10'b0;
     else if ((state == IDLE) || aer_reset_cnt < 2)  index <= {1'b0,1'b1,8'hFF};
-    else if (match_found)                           index <= {2'b0,pixelID};
+    else if (state == CHOOSE_VALUE)                 index <= {2'b0,IMAGE[pixelID]};
     else                                            index <= index;
-
+  end
   //----------------------------------------------------------------------------
 	//	OUTPUT
 	//----------------------------------------------------------------------------
-  assign FOUND_NEXT_INDEX = ((match_found && (state == SORT)) || (state == SEND_AER));
+  assign FOUND_NEXT_INDEX = (state == CHOOSE_VALUE) || (state == SEND_AER);
   assign NEXT_INDEX = index;
   assign ENCODER_RDY = (state == IDLE) ? 1'b1: 1'b0;
 

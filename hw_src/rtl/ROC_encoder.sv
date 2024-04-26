@@ -160,17 +160,23 @@ module ROC_encoder #(
     else if (state == CHOOSE_VALUE)                 index <= {2'b0,sorted_image[pixelID]};
     else                                            index <= index;
   end
+  
   //----------------------------------------------------------------------------
 	//	REGISTERS
 	//----------------------------------------------------------------------------  
   // Register to store the count of each intensity value
   always_ff @(posedge CLK, posedge RST)
-    if (RST || state == IDLE) begin
+    if (RST) begin
       foreach (frequency[i]) 
         frequency[i] <= 0;
       foreach (sorted_image[i]) 
         sorted_image[i] <= 0;
-    
+    end else if (state == IDLE) begin
+      foreach (frequency[i]) 
+        frequency[i] <= 0;
+      foreach (sorted_image[i]) 
+        sorted_image[i] <= 0;
+
     end else if (state == FREQUENCY) begin
       frequency[IMAGE[pixelID]] <= frequency[IMAGE[pixelID]] + 1;
     

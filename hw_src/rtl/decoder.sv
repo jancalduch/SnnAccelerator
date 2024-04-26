@@ -37,9 +37,9 @@ module decoder #(
 	//----------------------------------------------------------------------------------
 
 	// FSM states 
-	localparam INIT         = 4'd0; 
-  localparam STORE        = 4'd1;
-  localparam WAIT         = 4'd2;
+	localparam INIT         = 2'd0; 
+  localparam STORE        = 2'd1;
+  localparam WAIT         = 2'd2;
 
 	//----------------------------------------------------------------------------------
 	//	REGS & WIRES
@@ -77,13 +77,13 @@ module decoder #(
 	//----------------------------------------------------------------------------------
     
   // State register
-	always @(posedge CLK, posedge RST) begin
+	always_ff @(posedge CLK, posedge RST) begin
 		if   (RST) state <= INIT;
 		else       state <= nextstate;
 	end
     
 	// Next state logic
-	always @(*)
+	always_comb begin
     case(state)
 			INIT:	
         if (AEROUT_REQ_sync)   
@@ -98,9 +98,10 @@ module decoder #(
 				else					              nextstate = WAIT;
 			default: 					            nextstate = INIT;
 	  endcase 
-         
+  end
+
   // Output logic      
-  always @(*) begin  
+  always_comb begin  
       
     if (state == INIT) begin
       storeValue            = 1'b0;
