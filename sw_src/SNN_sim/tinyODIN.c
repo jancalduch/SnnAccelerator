@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdbool.h>
-#include <string.h>
+#include <time.h>
 
 // Number of MNIST images to process
 #define DATASET_SIZE 10000
@@ -162,6 +162,9 @@ int main() {
 
   char *file = NULL;
   int correct_guesses = 0;
+
+  clock_t tstart; 
+  double tencoding, tprocessing = 0.0;
     
   /* Parse pre-processed images*/
   file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_images2.txt";
@@ -184,15 +187,24 @@ int main() {
     }
 
     /* Encode the image with ROC*/
+    tstart = clock();
     ROC_encode(image, ROC_image);
+    tencoding += (double)(clock() - tstart) / CLOCKS_PER_SEC;
 
     /* Process the encoded image with tinyODIN and update metrics*/
+    tstart = clock();
     int inference = tinyODIN(ROC_image, weights);
+    tprocessing += (double)(clock() - tstart) / CLOCKS_PER_SEC;
     update_accuracy(inference, test_labels[i], &correct_guesses);
-
   }
 
   print_accuracy(&correct_guesses);
+  printf("Encoding time (s): %f\n", tencoding);
+  printf("Average encoding time (us): %f\n", tencoding / DATASET_SIZE * 1000000);
+  printf("Processing time (s): %f\n", tprocessing);
+  printf("Average processing time (us): %f\n", tprocessing / DATASET_SIZE * 1000000);
+
+  printf("CLOCKS_PER_SEC = %ld\n", CLOCKS_PER_SEC);
 
   return 0;
 }
