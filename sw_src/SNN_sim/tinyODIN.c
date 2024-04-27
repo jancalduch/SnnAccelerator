@@ -7,7 +7,7 @@
 #include <string.h>
 
 // Number of MNIST images to process
-#define DATASET_SIZE 8180
+#define DATASET_SIZE 10000
 
 // MNIST images have been resized to 16x16
 #define IMAGE_SIZE 256
@@ -154,6 +154,7 @@ void print_accuracy(int *correct_guesses){
 
 int main() {
   int test_images[DATASET_SIZE][IMAGE_SIZE] = {0};
+  
   // int test_labels[DATASET_SIZE] = {0};
   // int weights[IL_neurons][OL_neurons] = {0};
 
