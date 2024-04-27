@@ -153,57 +153,44 @@ void print_accuracy(int *correct_guesses){
 }
 
 int main() {
-  int test_images[DATASET_SIZE][IMAGE_SIZE] = {0};
-  
-  // int test_labels[DATASET_SIZE] = {0};
-  // int weights[IL_neurons][OL_neurons] = {0};
+  int test_images[10000][256] = {0};
+  int test_labels[DATASET_SIZE] = {0};
+  int weights[IL_neurons][OL_neurons] = {0};
 
-  // int image[IMAGE_SIZE] = {0};
-  // int ROC_image[IMAGE_SIZE] = {0};
+  int image[IMAGE_SIZE] = {0};
+  int ROC_image[IMAGE_SIZE] = {0};
 
+  char *file = NULL;
   int correct_guesses = 0;
-  
+    
   /* Parse pre-processed images*/
-  char *file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_images2.txt";
+  file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_images2.txt";
   read_2d_image_array_from_file(file, DATASET_SIZE, IMAGE_SIZE, test_images); 
 
-  // for (int row = 0; row < DATASET_SIZE; row++) {
-  //   for (int col = 0; col < IMAGE_SIZE; col++) {
-  //     printf("%d ", test_images[row][col]);
-  //   }
-  //   printf("\n");
-  // }
+  /* Parse test labels*/
+  file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_labels2.txt";
+  read_array_from_file(file, DATASET_SIZE, test_labels); 
 
-  for (int col = 0; col < IMAGE_SIZE; col++) {
-    printf("%d ", test_images[8180][col]);
-  }
-  printf("\n");
+  /* Parse weights*/
+  file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/weights2.txt";
+  read_2d_weight_array_from_file(file, IL_neurons, OL_neurons, weights); 
 
-
-  // /* Parse test labels*/
-  // file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_labels2.txt";
-  // read_array_from_file(file, DATASET_SIZE, test_labels); 
-
-  // /* Parse weights*/
-  // file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/weights2.txt";
-  // read_2d_weight_array_from_file(file, IL_neurons, OL_neurons, weights); 
-
-  // /* Encode and then process each image with tinyODIN emulator*/
-  // for (int i = 0; i < DATASET_SIZE; i++){
+  /* Encode and then process each image with tinyODIN emulator*/
+  for (int i = 0; i < DATASET_SIZE; i++){
     
-  //   /* Select the image to process*/
-  //   for (int j = 0; j < IMAGE_SIZE; j++) {
-  //     image[j] = test_images[i][j];
-  //   }
+    /* Select the image to process*/
+    for (int j = 0; j < IMAGE_SIZE; j++) {
+      image[j] = test_images[i][j];
+    }
 
-  //   /* Encode the image with ROC*/
-  //   ROC_encode(image, ROC_image);
+    /* Encode the image with ROC*/
+    ROC_encode(image, ROC_image);
 
-  //   /* Process the encoded image with tinyODIN and update metrics*/
-  //   int inference = tinyODIN(ROC_image, weights);
-  //   update_accuracy(inference, test_labels[i], &correct_guesses);
+    /* Process the encoded image with tinyODIN and update metrics*/
+    int inference = tinyODIN(ROC_image, weights);
+    update_accuracy(inference, test_labels[i], &correct_guesses);
 
-  // }
+  }
 
   print_accuracy(&correct_guesses);
 
