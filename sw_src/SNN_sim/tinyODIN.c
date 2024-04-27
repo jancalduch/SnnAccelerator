@@ -7,7 +7,7 @@
 #include <string.h>
 
 // Number of MNIST images to process
-#define DATASET_SIZE 1
+#define DATASET_SIZE 8180
 
 // MNIST images have been resized to 16x16
 #define IMAGE_SIZE 256
@@ -117,9 +117,28 @@ void ROC_encode(int input_array[], int output_array[]) {
   // print_array(output_array);
 }
 
-int tinyODIN(int image[], int weights[OL_neurons][IMAGE_SIZE]){
-  int output[OL_neurons] = {0};
-  return 1;
+int tinyODIN(int image[], int weights[IL_neurons][OL_neurons]){
+  
+  int state[OL_neurons] = {0};  // State of each output neuron            
+
+  /* Loop trough the encoded image and process each spike event until an output
+    neuron generates a spike. Return the output spike as it is the inferred 
+    digit. */
+  for (int i = 0; i < IMAGE_SIZE; i++) {
+    int IL_neuron = image[i]; // IL neuron that spikes
+
+    /* Resolve the spike event by updating each OL neuron with the weight 
+    between that neuron and the IL neuron. Then, check if the firing condition 
+    is met. */
+    for (int OL_neuron = 0; OL_neuron < OL_neurons; OL_neuron++) {
+      state[OL_neuron] += weights[IL_neuron][OL_neuron];
+      if (state[OL_neuron] >= SPIKE_THRESHOLD) {
+        return OL_neuron;
+      }
+    }
+  }
+
+  return -1;
 }
 
 void update_accuracy(int inference, int label, int *correct_guesses){
@@ -134,12 +153,12 @@ void print_accuracy(int *correct_guesses){
 }
 
 int main() {
-  int test_images[DATASET_SIZE][IMAGE_SIZE];
-  int test_labels[DATASET_SIZE];
-  int weights[IL_neurons][OL_neurons];
+  int test_images[DATASET_SIZE][IMAGE_SIZE] = {0};
+  // int test_labels[DATASET_SIZE] = {0};
+  // int weights[IL_neurons][OL_neurons] = {0};
 
-  int image[IMAGE_SIZE];
-  int ROC_image[IMAGE_SIZE];
+  // int image[IMAGE_SIZE] = {0};
+  // int ROC_image[IMAGE_SIZE] = {0};
 
   int correct_guesses = 0;
   
@@ -147,30 +166,43 @@ int main() {
   char *file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_images2.txt";
   read_2d_image_array_from_file(file, DATASET_SIZE, IMAGE_SIZE, test_images); 
 
-  /* Parse weights*/
-  file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/weights2.txt";
-  read_2d_weight_array_from_file(file, IL_neurons, OL_neurons, weights); 
+  // for (int row = 0; row < DATASET_SIZE; row++) {
+  //   for (int col = 0; col < IMAGE_SIZE; col++) {
+  //     printf("%d ", test_images[row][col]);
+  //   }
+  //   printf("\n");
+  // }
 
-  /* Parse test labels*/
-  file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_labels2.txt";
-  read_array_from_file(file, DATASET_SIZE, test_labels); 
-
-  /* Encode and then process each image with tinyODIN emulator*/
-  for (int i = 0; i < DATASET_SIZE; i++){
-    
-    /* Select the image to process*/
-    for (int j = 0; j < IMAGE_SIZE; j++) {
-      image[j] = test_images[i][j];
-    }
-
-    /* Encode the image with ROC*/
-    ROC_encode(image, ROC_image);
-
-    /* Process the encoded image with tinyODIN and update metrics*/
-    int inference = tinyODIN(ROC_image, weights);
-    update_accuracy(inference, test_labels[i], &correct_guesses);
-
+  for (int col = 0; col < IMAGE_SIZE; col++) {
+    printf("%d ", test_images[8180][col]);
   }
+  printf("\n");
+
+
+  // /* Parse test labels*/
+  // file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_labels2.txt";
+  // read_array_from_file(file, DATASET_SIZE, test_labels); 
+
+  // /* Parse weights*/
+  // file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/weights2.txt";
+  // read_2d_weight_array_from_file(file, IL_neurons, OL_neurons, weights); 
+
+  // /* Encode and then process each image with tinyODIN emulator*/
+  // for (int i = 0; i < DATASET_SIZE; i++){
+    
+  //   /* Select the image to process*/
+  //   for (int j = 0; j < IMAGE_SIZE; j++) {
+  //     image[j] = test_images[i][j];
+  //   }
+
+  //   /* Encode the image with ROC*/
+  //   ROC_encode(image, ROC_image);
+
+  //   /* Process the encoded image with tinyODIN and update metrics*/
+  //   int inference = tinyODIN(ROC_image, weights);
+  //   update_accuracy(inference, test_labels[i], &correct_guesses);
+
+  // }
 
   print_accuracy(&correct_guesses);
 
