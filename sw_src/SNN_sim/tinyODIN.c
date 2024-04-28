@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <time.h>
 
+// ulimit -s 16384
+
 // Number of MNIST images to process
 #define DATASET_SIZE 10000
 
