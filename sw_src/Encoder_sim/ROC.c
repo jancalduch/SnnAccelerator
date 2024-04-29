@@ -6,13 +6,10 @@
 #include <stdbool.h>
 
 // MNIST images have been resized to 16x16
-#define IMAGE_SIZE 10
+#define IMAGE_SIZE 256
 
 // Each pixel on MNIST is a value from 0 to 255, stored as integers
-#define PIXEL_MAX_VALUE 12
-
-// Number of digits in the base 10 number system
-#define BASE_10 10
+#define PIXEL_MAX_VALUE 255
 
 
 void print_array(int array[]){
@@ -20,7 +17,7 @@ void print_array(int array[]){
   for (int i = 0; i < IMAGE_SIZE; i++) {
     printf("%d", array[i]);
     if (i < IMAGE_SIZE - 1) {
-      printf(", \t"); 
+      printf(", "); 
     }
   }
   printf("]\n\n");
@@ -120,20 +117,20 @@ void counting_sort_descending(int input_array[], int sorted_array[]) {
 
 
 int main() {
-  int image[IMAGE_SIZE];
+  int image[IMAGE_SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 32, 81, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 174, 244, 101, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 53, 187, 243, 239, 190, 75, 2, 0, 0, 0, 0, 0, 0, 0, 0, 25, 185, 111, 98, 219, 222, 71, 6, 0, 0, 0, 0, 0, 0, 0, 26, 120, 127, 20, 100, 228, 149, 27, 0, 0, 0, 0, 0, 0, 0, 0, 24, 214, 163, 183, 192, 227, 120, 0, 0, 0, 0, 0, 0, 0, 0, 1, 55, 164, 188, 83, 82, 170, 104, 12, 0, 0, 0, 0, 0, 0, 0, 1, 10, 35, 17, 4, 51, 185, 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 63, 180, 77, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 50, 159, 98, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 174, 64, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 45, 97, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   int sorted_indexes[IMAGE_SIZE];
 
   /*  Initialize each value randomly between 0 and 255. Seed the random number 
       generator to get different values each time
   */
-  printf("Indices: \t\t");
-  print_indices();
-  srand(time(NULL));
-  for (int i = 0; i < IMAGE_SIZE; i++) {
-    image[i] = rand() % PIXEL_MAX_VALUE + 1;
-  }
-  printf("Original image: \t");
-  print_array(image);
+  // printf("Indices: \t\t");
+  // print_indices();
+  // srand(time(NULL));
+  // for (int i = 0; i < IMAGE_SIZE; i++) {
+  //   image[i] = rand() % PIXEL_MAX_VALUE + 1;
+  // }
+  // printf("Original image: \t");
+  // print_array(image);
 
   /*  Start sorting the image - first solution */
   sorter(image, sorted_indexes);
@@ -147,7 +144,7 @@ int main() {
 
   /*  Start sorting the image - counting sort descending*/
   counting_sort_descending(image, sorted_indexes);
-  printf("Counting sort r: \t");
+  // printf("Counting sort r: \t");
   print_array(sorted_indexes);
 
   return 0;
