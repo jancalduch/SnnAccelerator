@@ -1,8 +1,8 @@
 module ROC_encoder_tb ();
 
-  localparam IMAGE_SIZE      = 7;
+  localparam IMAGE_SIZE      = 6;
   localparam IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE);
-  localparam PIXEL_MAX_VALUE = 15;
+  localparam PIXEL_MAX_VALUE = 10;
 	localparam PIXEL_BITS      = $clog2(PIXEL_MAX_VALUE);
 
   // ------------------------------
@@ -72,7 +72,7 @@ module ROC_encoder_tb ();
   // ------------------------------
   // -- DUT and assignments
   // ------------------------------
-  ROC_encoder2 #(
+  ROC_encoder #(
     IMAGE_SIZE,
     IMAGE_SIZE_BITS,
     PIXEL_MAX_VALUE,
