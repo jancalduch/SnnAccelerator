@@ -125,7 +125,7 @@ module AXI_tb();
   // -- DUT and assignments
   // ------------------------------
 
-  S_AXI4l_interface3 #(
+  S_AXI4l_interface #(
     N,
     M,
     AXI_DATA_WIDTH,
