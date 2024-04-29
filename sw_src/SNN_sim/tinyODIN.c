@@ -22,6 +22,9 @@
 #define OL_neurons 10
 #define SPIKE_THRESHOLD 222
 
+// Second to microsecond conversion
+#define SEC_TO_USEC 1000000
+
 
 void print_array(int array[]){
   printf("[");
@@ -155,9 +158,9 @@ void print_accuracy(int *correct_guesses){
 }
 
 int main() {
-  int test_images[10000][256] = {0};
+  int test_images[10000][256] = {{0}};
   int test_labels[DATASET_SIZE] = {0};
-  int weights[IL_neurons][OL_neurons] = {0};
+  int weights[IL_neurons][OL_neurons] = {{0}};
 
   int image[IMAGE_SIZE] = {0};
   int ROC_image[IMAGE_SIZE] = {0};
@@ -169,15 +172,18 @@ int main() {
   double tencoding, tprocessing = 0.0;
     
   /* Parse pre-processed images*/
-  file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_images2.txt";
+  // file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_images2.txt";
+  file = "../../data/test_images2.txt";
   read_2d_image_array_from_file(file, DATASET_SIZE, IMAGE_SIZE, test_images); 
 
   /* Parse test labels*/
-  file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_labels2.txt";
+  // file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_labels2.txt";
+  file = "../../data/test_labels2.txt";
   read_array_from_file(file, DATASET_SIZE, test_labels); 
 
   /* Parse weights*/
-  file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/weights2.txt";
+  // file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/weights2.txt";
+  file = "../../data/weights2.txt";
   read_2d_weight_array_from_file(file, IL_neurons, OL_neurons, weights); 
 
   /* Encode and then process each image with tinyODIN emulator*/
@@ -197,14 +203,14 @@ int main() {
     tstart = clock();
     int inference = tinyODIN(ROC_image, weights);
     tprocessing += (double)(clock() - tstart) / CLOCKS_PER_SEC;
+    
     update_accuracy(inference, test_labels[i], &correct_guesses);
   }
 
   print_accuracy(&correct_guesses);
-  printf("Encoding time (s): %f\n", tencoding);
-  printf("Average encoding time (us): %f\n", tencoding / DATASET_SIZE * 1000000);
-  printf("Processing time (s): %f\n", tprocessing);
-  printf("Average processing time (us): %f\n", tprocessing / DATASET_SIZE * 1000000);
+
+  printf("Average encoding time (us): %f\n", tencoding / DATASET_SIZE * SEC_TO_USEC);
+  printf("Average processing time (us): %f\n", tprocessing / DATASET_SIZE * SEC_TO_USEC);
 
   printf("CLOCKS_PER_SEC = %ld\n", CLOCKS_PER_SEC);
 
