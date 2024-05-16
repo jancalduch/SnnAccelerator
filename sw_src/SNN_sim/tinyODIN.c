@@ -169,7 +169,10 @@ int main() {
   int correct_guesses = 0;
 
   clock_t tstart; 
-  double tencoding, tprocessing = 0.0;
+  double tencoding, tprocessing, time = 0.0;
+  
+  double tworst = 0.0;
+  double tbest = 1000000.0;
     
   /* Parse pre-processed images*/
   // file = "/mnt/c/Users/User/Documents/NTNU/Q4/GitHub/SnnAccelerator/data/test_images2.txt";
@@ -202,8 +205,16 @@ int main() {
     /* Process the encoded image with tinyODIN and update metrics*/
     tstart = clock();
     int inference = tinyODIN(ROC_image, weights);
-    tprocessing += (double)(clock() - tstart) / CLOCKS_PER_SEC;
-    
+    time = (double)(clock() - tstart) / CLOCKS_PER_SEC;   
+    tprocessing += time;
+
+    if (time > tworst) {
+      tworst = time;
+    }
+    if (time < tbest) {
+      tbest = time;
+    }
+
     update_accuracy(inference, test_labels[i], &correct_guesses);
   }
 
@@ -211,6 +222,9 @@ int main() {
 
   printf("Average encoding time (us): %f\n", tencoding / DATASET_SIZE * SEC_TO_USEC);
   printf("Average processing time (us): %f\n", tprocessing / DATASET_SIZE * SEC_TO_USEC);
+
+  printf("Worst processing time (us): %f\n", tworst * SEC_TO_USEC);
+  printf("Best processing time (us): %f\n", tbest * SEC_TO_USEC);
 
   printf("CLOCKS_PER_SEC = %ld\n", CLOCKS_PER_SEC);
 
