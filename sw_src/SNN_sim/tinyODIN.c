@@ -204,10 +204,13 @@ int main() {
 
     /* Process the encoded image with tinyODIN and update metrics*/
     tstart = clock();
+    printf("tsart: %ld\n", tstart);
     int inference = tinyODIN(ROC_image, weights);
     time = (double)(clock() - tstart) / CLOCKS_PER_SEC;   
     tprocessing += time;
 
+    time = time * SEC_TO_USEC;
+    printf("time: %f\n", time);
     if (time > tworst) {
       tworst = time;
     }
@@ -223,8 +226,8 @@ int main() {
   printf("Average encoding time (us): %f\n", tencoding / DATASET_SIZE * SEC_TO_USEC);
   printf("Average processing time (us): %f\n", tprocessing / DATASET_SIZE * SEC_TO_USEC);
 
-  printf("Worst processing time (us): %f\n", tworst * SEC_TO_USEC);
-  printf("Best processing time (us): %f\n", tbest * SEC_TO_USEC);
+  printf("Worst processing time (us): %f\n", tworst);
+  printf("Best processing time (us): %f\n", tbest);
 
   printf("CLOCKS_PER_SEC = %ld\n", CLOCKS_PER_SEC);
 
