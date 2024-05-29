@@ -16,6 +16,7 @@ module AXI_tb();
   // TB
   logic AXI_tb_ready;
   logic [31:0] IMAGE_IN [0:IMAGE_SIZE-1];
+  logic [31:0] values_in [0:1];
   logic [31:0] init_values [0:IMAGE_SIZE-1];
 
   logic [31:0] read_data;
@@ -181,38 +182,68 @@ module AXI_tb();
     //	SEND IMAGE
     //--------------------------------------------------------------------------
 
-    // Generate and print input image
-    for (int i = 0; i < IMAGE_SIZE; i++) begin
-      IMAGE_IN[i] = init_values[i];
-    end
+    // // Generate and print input image
+    // for (int i = 0; i < IMAGE_SIZE; i++) begin
+    //   IMAGE_IN[i] = init_values[i];
+    // end
 
-    $display("Image sent:");
-    for (int i = 0; i < IMAGE_SIZE; i++) begin
-      $write("%d: ", i);
-      $display("%d", IMAGE_IN[i]);
-    end
+    // $display("Image sent:");
+    // for (int i = 0; i < IMAGE_SIZE; i++) begin
+    //   $write("%d: ", i);
+    //   $display("%d", IMAGE_IN[i]);
+    // end
 
-    // Send data byte by byte
-    for (int address = 0; address < IMAGE_SIZE; address++) begin
-      axi4l_write(address, IMAGE_IN[address]);
-    end
-    // Notify that image is fully sent
-    axi4l_write(256, 1);
-    axi4l_write(256, 0);
+    // // Send data byte by byte
+    // for (int address = 0; address < IMAGE_SIZE; address++) begin
+    //   axi4l_write(address, IMAGE_IN[address]);
+    // end
+    // // Notify that image is fully sent
+    // axi4l_write(256, 1);
+    // axi4l_write(256, 0);
 
-    // Check that image is correct
-    for (int i = 0; i < IMAGE_SIZE; i++) begin
-      assert (IMAGE_IN[i] == u_S_AXI4l_interface.image_data[i]) else $error("It's gone wrong");
-    end
+    // // Check that image is correct
+    // for (int i = 0; i < IMAGE_SIZE; i++) begin
+    //   assert (IMAGE_IN[i] == u_S_AXI4l_interface.image_data[i]) else $error("It's gone wrong");
+    // end
 
-    wait_ns(100);
+    // wait_ns(100);
+
+
+  //--------------------------------------------------------------------------
+  //	SEND RANDOM VALUE
+  //--------------------------------------------------------------------------
+
+  // Generate and print input image
+  for (int i = 0; i < 2; i++) begin
+    values_in[i] = $urandom_range(0, PIXEL_MAX_VALUE);
+  end
+
+  $display("Image sent:");
+  for (int i = 0; i < 2; i++) begin
+    $write("%d: ", i);
+    $display("%d", values_in[i]);
+  end
+
+  // Send data byte by byte
+  for (int address = 0; address < 2; address++) begin
+    axi4l_write(address, values_in[address]);
+  end
+
+  // Notify that image is fully sent
+  axi4l_write(256, 1);
+  axi4l_write(256, 0);
+
+  // Check that image is correct
+  for (int i = 0; i < 2; i++) begin
+    assert (values_in[i] == u_S_AXI4l_interface.image_data[i]) else $error("It's gone wrong");
+  end
 
     //--------------------------------------------------------------------------
     //	READ RESULT
     //--------------------------------------------------------------------------
-    // After some time, simulate SNN sending a result
+    // After some time, simulate SNN sending a random result
     fork
-      SNN_send_result(5, 3000);
+      SNN_send_result($urandom_range(0, PIXEL_MAX_VALUE), 0);
     join_none
     
     // Wait until a result is valid and then read
