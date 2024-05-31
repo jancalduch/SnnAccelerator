@@ -122,19 +122,17 @@ void ROC_encode(int input_array[], int output_array[]) {
   // print_array(output_array);
 }
 
-int tinyODIN(int image[], int weights[IL_neurons][OL_neurons]){
+int tinyODIN(int ROC_image[], int weights[IL_neurons][OL_neurons]){
   
   int state[OL_neurons] = {0};  // State of each output neuron            
 
   /* Loop trough the encoded image and process each spike event until an output
-    neuron generates a spike. Return the output spike as it is the inferred 
-    digit. */
+    neuron generates a spike. Return the output spike as it is the inferred digit. */
   for (int i = 0; i < IMAGE_SIZE; i++) {
-    int IL_neuron = image[i]; // IL neuron that spikes
+    int IL_neuron = ROC_image[i]; // Spike event (index of IL neuron to spike)
 
-    /* Resolve the spike event by updating each OL neuron with the weight 
-    between that neuron and the IL neuron. Then, check if the firing condition 
-    is met. */
+    /* Resolve the spike event by updating each OL neuron with the weight between 
+    that neuron and the IL neuron. Then, check if the firing condition is met. */
     for (int OL_neuron = 0; OL_neuron < OL_neurons; OL_neuron++) {
       state[OL_neuron] += weights[IL_neuron][OL_neuron];
       if (state[OL_neuron] >= SPIKE_THRESHOLD) {
