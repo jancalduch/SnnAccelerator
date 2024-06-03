@@ -42,6 +42,10 @@
 //
 
 
+// Original code from: https://github.com/ZipCPU/wb2axip/blob/master/rtl/easyaxil.v
+// Modified by: Jan Calduch Isaksen by modifying the slave reigsters and renaming the signals
+
+
 module S_AXI4l_interface #(
   parameter integer N               = 256,    // Maximum number of neurons
   parameter integer M               = 8,      // log2(N)
