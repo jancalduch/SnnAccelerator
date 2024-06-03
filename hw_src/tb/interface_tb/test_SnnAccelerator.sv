@@ -1,27 +1,10 @@
-//====================================================================
-//        Copyright (c) 2023 Nordic Semiconductor ASA, Norway
-//====================================================================
-// Created : hedi at 2023-09-28
-//====================================================================
-
 module test_SnnAccelerator ();
-
-  // ------------------------------
-  // -- Local parameters
-  // ------------------------------
-
-  //localparam real T_CK16M = 62.5ns;
-
 
   // ------------------------------
   // -- Interfaces
   // ------------------------------
 
   inTest_SnnAccelerator uin_SnnAccelerator();
-
-  // ------------------------------
-  // -- Logic
-  // ------------------------------
 
   // ------------------------------
   // -- Init
@@ -122,21 +105,6 @@ module test_SnnAccelerator ();
     .RREADY               ( uin_SnnAccelerator.RREADY         ),
     .COPROCESSOR_RDY      ( uin_SnnAccelerator.COPROCESSOR_RDY)
   );
-
-  // ------------------------------
-  // -- Concurrent assertions
-  // ------------------------------
-
-  // assertions_SnnAccelerator u_assertions(
-  //   .uin_SnnAccelerator (uin_SnnAccelerator)
-  // );
-
-  // // OR
-
-  // bind u_SnnAccelerator assertions_SnnAccelerator bind_assertions_SnnAccelerator (
-  //   .* // Connect the signals in the design of the same name
-  // );
-
 
   // ------------------------------
   // -- Test program

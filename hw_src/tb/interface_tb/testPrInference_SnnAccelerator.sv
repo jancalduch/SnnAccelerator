@@ -1,9 +1,3 @@
-//====================================================================
-//        Copyright (c) 2023 Nordic Semiconductor ASA, Norway
-//====================================================================
-// Created : jais at 2023-10-20
-//====================================================================
-
 program automatic testPrInference_SnnAccelerator (
   inTest_SnnAccelerator uin_SnnAccelerator
 );

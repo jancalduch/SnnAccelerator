@@ -1,3 +1,10 @@
+//------------------------------------------------------------------------------
+// Module modified from "aer_out.v" by Charlotte Frenkel in
+// tinyODIn project: 
+// https://github.com/ChFrenkel/tinyODIN/tree/main
+//
+//------------------------------------------------------------------------------
+
 module aer_in #(
 	parameter IMAGE_SIZE      = 256,
   parameter IMAGE_SIZE_BITS = $clog2(IMAGE_SIZE),

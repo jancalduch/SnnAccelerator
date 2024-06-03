@@ -1,9 +1,3 @@
-//====================================================================
-//        Copyright (c) 2023 Nordic Semiconductor ASA, Norway
-//====================================================================
-// Created : jais at 2023-10-20
-//====================================================================
-
 program automatic testPrInferenceAll_SnnAccelerator (
   inTest_SnnAccelerator uin_SnnAccelerator
 );
@@ -11,12 +5,17 @@ program automatic testPrInferenceAll_SnnAccelerator (
   initial begin 
     while (~uin_SnnAccelerator.SPI_config_rdy) wait_ns(1);
 
-    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbStart("completeInference");  
+    nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbStart("completeInference");
+
+    uin_SnnAccelerator.total_program_time = 0;
+    uin_SnnAccelerator.total_verify_time  = 0;  
 
     /*****************************************************************************************************************************************************************************************************************/
     /* Program Control Registers for Loading Weights */
     /*****************************************************************************************************************************************************************************************************************/
     nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("program registers");
+
+    $display("----- Starting programming SNN control registers");
     uin_SnnAccelerator.start_time = $time;
     
     //Disable network operation
@@ -25,21 +24,23 @@ program automatic testPrInferenceAll_SnnAccelerator (
     uin_SnnAccelerator.spi_send (.addr({1'b0,1'b0,2'b00,16'd1 }), .data(paTest_SnnAccelerator::SPI_OPEN_LOOP              ), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK)); //SPI_OPEN_LOOP
     uin_SnnAccelerator.spi_send (.addr({1'b0,1'b0,2'b00,16'd2 }), .data(paTest_SnnAccelerator::SPI_AER_SRC_CTRL_nNEUR     ), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK)); //SPI_AER_SRC_CTRL_nNEUR
 
-    /*****************************************************************************************************************************************************************************************************************/  
-    /* Verify the Control Registers */
-    /*****************************************************************************************************************************************************************************************************************/
-    
+    uin_SnnAccelerator.program_time = $time - uin_SnnAccelerator.start_time;
+    uin_SnnAccelerator.total_program_time += uin_SnnAccelerator.program_time;
+    $display("----- Programming register time is %.4f ns", uin_SnnAccelerator.program_time);
+
     $display("----- Starting verification of programmed SNN control registers");
+    uin_SnnAccelerator.start_time = $time;
 
     assert(u_SnnAccelerator.la_Include.u_cop.u_Core.spi_slave_0.SPI_GATE_ACTIVITY          ==  1'b1                                             ) else $fatal(0, "SPI_GATE_ACTIVITY parameter not correct.");
     assert(u_SnnAccelerator.la_Include.u_cop.u_Core.spi_slave_0.SPI_MAX_NEUR               == paTest_SnnAccelerator::SPI_MAX_NEUR               ) else $fatal(0, "SPI_MAX_NEUR parameter not correct.");
     assert(u_SnnAccelerator.la_Include.u_cop.u_Core.spi_slave_0.SPI_OPEN_LOOP              == paTest_SnnAccelerator::SPI_OPEN_LOOP              ) else $fatal(0, "SPI_OPEN_LOOP parameter not correct.");
     assert(u_SnnAccelerator.la_Include.u_cop.u_Core.spi_slave_0.SPI_AER_SRC_CTRL_nNEUR     == paTest_SnnAccelerator::SPI_AER_SRC_CTRL_nNEUR     ) else $fatal(0, "SPI_AER_SRC_CTRL_nNEUR parameter not correct.");
         
-    $display("----- Ending verification of programmed SNN control registers, no error found!");
-        
+    uin_SnnAccelerator.verify_time = $time - uin_SnnAccelerator.start_time;
+    uin_SnnAccelerator.total_verify_time += uin_SnnAccelerator.verify_time;
+    $display("----- Verify register time is %.4f ns", uin_SnnAccelerator.verify_time);
+            
     uin_SnnAccelerator.SPI_param_checked = 1'b1;
-    
     while (~uin_SnnAccelerator.SNN_initialized_rdy) wait_ns(1);
         
     /*****************************************************************************************************************************************************************************************************************/
@@ -47,16 +48,24 @@ program automatic testPrInferenceAll_SnnAccelerator (
     /*****************************************************************************************************************************************************************************************************************/
     nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("program neurons");
 
+    $display("----- Starting programming of neuron SRAM");
+    uin_SnnAccelerator.start_time = $time;
+
     // Initializing all neurons to zero
-    $display("----- Disabling neurons 0 to 255.");   
+    $display("Disabling neurons 0 to 255.");   
     for (uin_SnnAccelerator.i=0; uin_SnnAccelerator.i<paTest_SnnAccelerator::N; uin_SnnAccelerator.i=uin_SnnAccelerator.i+1) begin
       uin_SnnAccelerator.addr_temp[15:8] = 3;   // Programming only last byte for disabling a neuron
       uin_SnnAccelerator.addr_temp[7:0]  = uin_SnnAccelerator.i;   // Doing so for all neurons
       uin_SnnAccelerator.spi_send (.addr({1'b0,1'b1,2'b01,uin_SnnAccelerator.addr_temp[15:0]}), .data({4'b0,8'h7F,8'h80}), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK));
     end
-    $display("----- Disabling neurons done...");
 
-    $display("----- Starting programming of 10 first neurons in neuron memory in the SNN through SPI.");
+    uin_SnnAccelerator.program_time = $time - uin_SnnAccelerator.start_time;
+    uin_SnnAccelerator.total_program_time += uin_SnnAccelerator.program_time;
+    $display("----- Reset neuron time is %.4f us", uin_SnnAccelerator.program_time/1000.0);
+    
+    uin_SnnAccelerator.start_time = $time;
+    $display("Programming 10 first neurons.");
+
     uin_SnnAccelerator.param_leak_str  = 7'd127;            // Set a leakage higher than the threshold, so a leakage event resets the potential of all neurons
     uin_SnnAccelerator.param_thr       = $signed( 12'd222);
     uin_SnnAccelerator.mem_init        = $signed( 12'd0);
@@ -71,13 +80,15 @@ program automatic testPrInferenceAll_SnnAccelerator (
         uin_SnnAccelerator.spi_send (.addr({1'b0,1'b1,2'b01,uin_SnnAccelerator.addr_temp[15:0]}), .data({4'b0,8'h00,uin_SnnAccelerator.neur_data[7:0]}), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK));
       end
     end
-    $display("----- Ending programming of 10 first neurons in neuron memory in the SNN through SPI.");
-            
+
+    uin_SnnAccelerator.program_time = $time - uin_SnnAccelerator.start_time;
+    uin_SnnAccelerator.total_program_time += uin_SnnAccelerator.program_time;
+    $display("----- Programming 10 neuron time is %.4f us", uin_SnnAccelerator.program_time/1000.0);            
         
     // Verify neurons
     if (paTest_SnnAccelerator::VERIFY_NEURON_MEMORY) begin
       $display("----- Starting verification of neuron memory in the SNN through SPI.");
-      nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("verify neurons");
+      uin_SnnAccelerator.start_time = $time;
 
       for (uin_SnnAccelerator.i=0; uin_SnnAccelerator.i<paTest_SnnAccelerator::SPI_MAX_NEUR; uin_SnnAccelerator.i=uin_SnnAccelerator.i+1) begin
         for (uin_SnnAccelerator.j=0; uin_SnnAccelerator.j<4; uin_SnnAccelerator.j=uin_SnnAccelerator.j+1) begin
@@ -89,7 +100,11 @@ program automatic testPrInferenceAll_SnnAccelerator (
           assert(uin_SnnAccelerator.spi_read_data == {12'b0,uin_SnnAccelerator.neur_data[7:0]}) else $fatal(0, "Byte %d of neuron %d not written/read correctly.", uin_SnnAccelerator.j, uin_SnnAccelerator.i);
         end
       end
-      $display("----- Ending verification of neuron memory in the SNN through SPI, no error found!");
+
+      uin_SnnAccelerator.verify_time = $time - uin_SnnAccelerator.start_time;
+      uin_SnnAccelerator.total_verify_time += uin_SnnAccelerator.verify_time;
+      $display("----- Verify neuron time is %.4f us", uin_SnnAccelerator.verify_time/1000.0);
+
     end else
       $display("----- Skipping verification of neuron memory in the SNN through SPI.");
         
@@ -114,6 +129,8 @@ program automatic testPrInferenceAll_SnnAccelerator (
                                           4,3,2,1,0};
     // Programming synapses
     $display("----- Starting programmation of 256x10 synapses in the SNN through SPI.");
+    uin_SnnAccelerator.start_time = $time;
+
     nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("program synapses");
     for (uin_SnnAccelerator.i=0; uin_SnnAccelerator.i<paTest_SnnAccelerator::SPI_MAX_NEUR-1; uin_SnnAccelerator.i=uin_SnnAccelerator.i+2) begin
       for (uin_SnnAccelerator.j=0; uin_SnnAccelerator.j<paTest_SnnAccelerator::N; uin_SnnAccelerator.j=uin_SnnAccelerator.j+1) begin
@@ -125,16 +142,15 @@ program automatic testPrInferenceAll_SnnAccelerator (
         uin_SnnAccelerator.spi_send (.addr({1'b0,1'b1,2'b10,uin_SnnAccelerator.addr_temp[15:0]}), .data({4'b0,8'h00,{uin_SnnAccelerator.weights[uin_SnnAccelerator.j][uin_SnnAccelerator.i+1][3:0], uin_SnnAccelerator.weights[uin_SnnAccelerator.j][uin_SnnAccelerator.i][3:0]}}), .MISO(uin_SnnAccelerator.MISO), .MOSI(uin_SnnAccelerator.MOSI), .SCK(uin_SnnAccelerator.SCK));    // Synapse value = pre-synaptic neuron index 4 LSBs
       end
     end
-    $display("----- Ending programmation of 256x10 synapses in the SNN through SPI.");
-    uin_SnnAccelerator.end_time = $time;
 
-    uin_SnnAccelerator.execution_time = uin_SnnAccelerator.end_time - uin_SnnAccelerator.start_time;
-    $display("----- Programming execution time is %.4f ms", uin_SnnAccelerator.execution_time/1000000.0);
+    uin_SnnAccelerator.program_time = $time - uin_SnnAccelerator.start_time;
+    uin_SnnAccelerator.total_program_time += uin_SnnAccelerator.program_time;
+    $display("----- Programming synapses time is %.4f us", uin_SnnAccelerator.program_time/1000.0);
 
     // Verify synapse memory
     if (paTest_SnnAccelerator::VERIFY_ALL_SYNAPSES) begin
       $display("----- Starting verification of 256x10 synapses in the SNN through SPI.");
-      nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("verify synapses");
+      uin_SnnAccelerator.start_time = $time;
       for (uin_SnnAccelerator.i=0; uin_SnnAccelerator.i<paTest_SnnAccelerator::SPI_MAX_NEUR-1; uin_SnnAccelerator.i=uin_SnnAccelerator.i+2) begin
         for (uin_SnnAccelerator.j=0; uin_SnnAccelerator.j<paTest_SnnAccelerator::N; uin_SnnAccelerator.j=uin_SnnAccelerator.j+1) begin
           uin_SnnAccelerator.addr_temp[ 12:5] = uin_SnnAccelerator.input_neurons[uin_SnnAccelerator.j][7:0];    // Choose word
@@ -144,11 +160,20 @@ program automatic testPrInferenceAll_SnnAccelerator (
           assert(uin_SnnAccelerator.spi_read_data == {12'b0,{uin_SnnAccelerator.weights[uin_SnnAccelerator.j][uin_SnnAccelerator.i+1][3:0], uin_SnnAccelerator.weights[uin_SnnAccelerator.j][uin_SnnAccelerator.i][3:0]}}) else $fatal(0, "Byte %d of address %d not written/read correctly.", uin_SnnAccelerator.j, uin_SnnAccelerator.i);
         end
       end
-      $display("----- Ending verification of 256x10 synapses in the SNN through SPI, no error found!");
+
+      uin_SnnAccelerator.verify_time = $time - uin_SnnAccelerator.start_time;
+      uin_SnnAccelerator.total_verify_time += uin_SnnAccelerator.verify_time;
+      $display("----- Verify synapses time is %.4f us", uin_SnnAccelerator.verify_time/1000.0);
+
     end else
       $display("----- Skipping verification of 256x10 synapses in the SNN through SPI.");
 
+    $display("----- Total program time is %.4f us", uin_SnnAccelerator.total_program_time/1000.0);
+    $display("----- Total verify time is %.4f us", uin_SnnAccelerator.total_verify_time/1000.0);
+
     nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbTimestamp("Finished programming");
+    // nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbStop();
+    // nVipPa_FSDBDumper::cl_FSDBDumper::get().ta_fsdbStart("completeInference");
       
     /*****************************************************************************************************************************************************************************************************************/
     /* Inference */

@@ -1,8 +1,3 @@
-//====================================================================
-//        Copyright (c) 2023 Nordic Semiconductor ASA, Norway
-//====================================================================
-// Created : hedi at 2023-09-28
-//====================================================================
 
 interface inTest_SnnAccelerator;
 
@@ -62,6 +57,7 @@ interface inTest_SnnAccelerator;
   integer values;
 
   real start_time, end_time, execution_time, total_time, worst_time, best_time, median_time, average_time;
+  real program_time, verify_time, total_program_time, total_verify_time;
   real axi_write_time;
   integer best_time_image, worst_time_image;
   real time_array[10000];
